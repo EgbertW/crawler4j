@@ -20,6 +20,7 @@ public class TLDList {
   private final static String TLD_NAMES_ONLINE_URL = "https://publicsuffix.org/list/effective_tld_names.dat";
   private final static String TLD_NAMES_ZIP_FILENAME = "tld-names.zip";
   private final static String TLD_NAMES_TXT_FILENAME = "tld-names.txt";
+  private final static boolean TLD_NAMES_ONLINE_UPDATE = false;
   private final static Logger logger = LoggerFactory.getLogger(TLDList.class);
 
   private Set<String> tldSet = new HashSet<>(10000);
@@ -29,9 +30,8 @@ public class TLDList {
   private TLDList() {
     try {
       InputStream stream = null;
-      boolean update_list = false;
       
-      if (update_list)
+      if (TLD_NAMES_ONLINE_UPDATE)
       {
         try {
           logger.debug("Fetching the most updated TLD list online");
