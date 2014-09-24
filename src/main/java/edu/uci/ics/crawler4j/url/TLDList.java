@@ -29,13 +29,20 @@ public class TLDList {
   private TLDList() {
     try {
       InputStream stream = null;
-
-      try {
-        logger.debug("Fetching the most updated TLD list online");
-        URL url = new URL(TLD_NAMES_ONLINE_URL);
-        stream = url.openStream();
-      } catch (Exception ex) {
-        logger.warn("Couldn't fetch the online list of TLDs from: {}", TLD_NAMES_ONLINE_URL);
+      boolean update_list = false;
+      
+      if (update_list)
+      {
+        try {
+          logger.debug("Fetching the most updated TLD list online");
+          URL url = new URL(TLD_NAMES_ONLINE_URL);
+          stream = url.openStream();
+        } catch (Exception ex) {
+          logger.warn("Couldn't fetch the online list of TLDs from: {}", TLD_NAMES_ONLINE_URL);
+        }
+      }
+      
+      if (stream == null) {
         logger.info("Fetching the list from a local file {}", TLD_NAMES_ZIP_FILENAME);
 
         ZipFile zipFile = new ZipFile(this.getClass().getClassLoader().getResource(TLD_NAMES_ZIP_FILENAME).getFile());
