@@ -100,6 +100,11 @@ public class WebCrawler implements Runnable {
    */
   private boolean isWaitingForNewURLs;
 
+  /** 
+   * The queue of URLs for this crawler instance
+   */
+  private List<WebURL> assignedURLs = new ArrayList<>(50);
+  
   /**
    * Initializes the current instance of the crawler
    *
@@ -232,15 +237,41 @@ public class WebCrawler implements Runnable {
   public Object getMyLocalData() {
     return null;
   }
+  
+  /**
+   * Replace the list of URLs in progress with a new empty
+   * list and return the current list. This may be called by the
+   * CrawlController to relocate URLs to a newly started thread
+   * in case of a crash. Should only be called when the thread is dead.
+   * 
+   * @return The list of assigned URLs
+   */
+  public List<WebURL> extractAssignedURLs() {
+      List<WebURL> cur = assignedURLs;
+      assignedURLs = new ArrayList<WebURL>();
+      return cur;
+  }
+  
+  /**
+   * Add all urls from a list to the assigned URLs. This should be used
+   * with the result of extractAssignedURLs from a different instance.
+   * 
+   * @param list The list of assigned URLs to add
+   */
+  public void resume(List<WebURL> list) {
+      assignedURLs.addAll(list);
+  }
 
   public void run() {
     onStart();
     while (true) {
-      List<WebURL> assignedURLs = new ArrayList<>(50);
-      isWaitingForNewURLs = true;
-      frontier.getNextURLs(50, assignedURLs);
-      isWaitingForNewURLs = false;
-      if (assignedURLs.size() == 0) {
+      if (assignedURLs.isEmpty())
+      {
+        isWaitingForNewURLs = true;
+        frontier.getNextURLs(50, assignedURLs);
+        isWaitingForNewURLs = false;
+      }
+      if (assignedURLs.isEmpty()) {
         if (frontier.isFinished()) {
           return;
         }
@@ -252,15 +283,22 @@ public class WebCrawler implements Runnable {
       } else {
         for (WebURL curURL : assignedURLs) {
           if (curURL != null) {
+            int seedDocid = curURL.getSeedDocid();
             curURL = handleUrlBeforeProcess(curURL);
             processPage(curURL);
+            curURL.setSeedDocid(seedDocid);
             frontier.setProcessed(curURL);
+            if (frontier.numOffspring(seedDocid) == 0)
+              handleSeedEnd(seedDocid);
           }
           if (myController.isShuttingDown()) {
             logger.info("Exiting because of controller shutdown.");
             return;
           }
         }
+        
+        // Empty list of URLs as they've been processed now
+        assignedURLs.clear();
       }
     }
   }
@@ -292,6 +330,17 @@ public class WebCrawler implements Runnable {
   public void visit(Page page) {
     // Do nothing by default
     // Sub-classed can override this to add their custom functionality
+  }
+  
+  /**
+   * Classes that extend WebCrawler can overwrite this function to perform
+   * an action when the last page resulting from a seed has been processed.
+   * 
+   * @param seedDocid The document ID of the seed
+   */
+  public void handleSeedEnd(int seedDocid) {
+      // Do nothing by default
+      // Sub-classes can override this to add their custom functionality
   }
 
   private void processPage(WebURL curURL) {
@@ -396,7 +445,7 @@ public class WebCrawler implements Runnable {
         }
       }
       frontier.scheduleAll(toSchedule);
-
+      
       try {
         visit(page);
       } catch (Exception e) {

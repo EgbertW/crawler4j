@@ -40,8 +40,8 @@ public class InProcessPagesDB extends WorkQueues {
 
   private static final Logger logger = LoggerFactory.getLogger(InProcessPagesDB.class);
 
-  public InProcessPagesDB(Environment env) throws DatabaseException {
-    super(env, "InProcessPagesDB", true);
+  public InProcessPagesDB(Environment env, boolean resumable) throws DatabaseException {
+    super(env, "InProcessPagesDB", resumable);
     long docCount = getLength();
     if (docCount > 0) {
       logger.info("Loaded {} URLs that have been in process in the previous crawl.", docCount);
@@ -49,13 +49,19 @@ public class InProcessPagesDB extends WorkQueues {
   }
 
   public boolean removeURL(WebURL webUrl) {
+    this.seedDecrease(webUrl.getSeedDocid());
     synchronized (mutex) {
       try {
         DatabaseEntry key = getDatabaseEntryKey(webUrl);
         Cursor cursor = null;
         OperationStatus result;
         DatabaseEntry value = new DatabaseEntry();
-        Transaction txn = env.beginTransaction(null, null);
+        Transaction txn;
+        if (resumable)
+            txn = env.beginTransaction(null, null);
+        else
+            txn = null;
+        
         try {
           cursor = urlsDB.openCursor(txn, null);
           result = cursor.getSearchKey(key, value, null);
@@ -66,6 +72,7 @@ public class InProcessPagesDB extends WorkQueues {
               return true;
             }
           }
+              
         } catch (DatabaseException e) {
           if (txn != null) {
             txn.abort();

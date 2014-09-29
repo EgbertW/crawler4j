@@ -179,8 +179,10 @@ public class CrawlController extends Configurable {
                       thread = new Thread(crawler, "Crawler " + (i + 1));
                       threads.remove(i);
                       threads.add(i, thread);
+                      T oldCrawler = crawlers.get(i);
                       crawler.setThread(thread);
                       crawler.init(i + 1, controller);
+                      crawler.resume(oldCrawler.extractAssignedURLs());
                       thread.start();
                       crawlers.remove(i);
                       crawlers.add(i, crawler);
@@ -302,9 +304,10 @@ public class CrawlController extends Configurable {
    *
    * @param pageUrl
    *            the URL of the seed
+   * @return The docId assigned for the seed URL
    */
-  public void addSeed(String pageUrl) {
-    addSeed(pageUrl, -1);
+  public int addSeed(String pageUrl) {
+    return addSeed(pageUrl, -1);
   }
 
   /**
@@ -324,19 +327,19 @@ public class CrawlController extends Configurable {
    *            the URL of the seed
    * @param docId
    *            the document id that you want to be assigned to this seed URL.
-   *
+   * @return The docId used / assigned for the seed URL
    */
-    public void addSeed(String pageUrl, int docId) {
+    public int addSeed(String pageUrl, int docId) {
       String canonicalUrl = URLCanonicalizer.getCanonicalURL(pageUrl);
       if (canonicalUrl == null) {
         logger.error("Invalid seed URL: {}", pageUrl);
-        return;
+        return -1;
       }
       if (docId < 0) {
         docId = docIdServer.getDocId(canonicalUrl);
         if (docId > 0) {
           // This URL is already seen.
-          return;
+          return -1;
         }
         docId = docIdServer.getNewDocID(canonicalUrl);
       } else {
@@ -357,6 +360,7 @@ public class CrawlController extends Configurable {
       } else {
         frontier.schedule(webUrl);
       }
+      return docId;
   }
 
   /**

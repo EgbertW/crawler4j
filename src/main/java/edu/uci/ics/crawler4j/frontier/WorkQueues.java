@@ -18,10 +18,12 @@
 package edu.uci.ics.crawler4j.frontier;
 
 import com.sleepycat.je.*;
+
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.Util;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -30,6 +32,8 @@ import java.util.List;
 public class WorkQueues {
 
   protected Database urlsDB = null;
+  protected Database seedCountDB = null;
+  protected HashMap<Integer, Integer> seedCount = new HashMap<Integer, Integer>();
   protected Environment env;
 
   protected boolean resumable;
@@ -47,6 +51,28 @@ public class WorkQueues {
     dbConfig.setDeferredWrite(!resumable);
     urlsDB = env.openDatabase(null, dbName, dbConfig);
     webURLBinding = new WebURLTupleBinding();
+    
+    // Load seed count from database
+    if (resumable) {
+      seedCountDB = env.openDatabase(null, dbName + "_seedcount", dbConfig);
+      OperationStatus result;
+      DatabaseEntry key = new DatabaseEntry();
+      DatabaseEntry value = new DatabaseEntry();
+      Transaction tnx = env.beginTransaction(null, null);
+      Cursor cursor = seedCountDB.openCursor(tnx, null);
+      result = cursor.getFirst(key, value, null);
+
+      while (result == OperationStatus.SUCCESS) {
+        if (value.getData().length > 0) {
+          Integer docid = new Long(Util.byteArray2Long(key.getData())).intValue();
+          Integer counterValue = new Long(Util.byteArray2Long(value.getData())).intValue();
+          seedCount.put(docid, counterValue);
+        }
+        result = cursor.getNext(key, value, null);
+      }
+      cursor.close();
+      tnx.commit();
+    }
   }
 
   public List<WebURL> get(int max) throws DatabaseException {
@@ -89,10 +115,59 @@ public class WorkQueues {
           txn.commit();
         }
       }
+      
       return results;
     }
   }
-
+  
+  public int getSeedCount(Integer docid) {
+      synchronized (mutex) {
+          return seedCount.containsKey(docid) ? seedCount.get(docid) : 0;
+      }
+  }
+  
+  public void setSeedCount(Integer docid, Integer value) {
+      DatabaseEntry key = new DatabaseEntry(Util.long2ByteArray(docid));
+      if (value <= 0)
+      {
+          synchronized (mutex) {
+              seedCount.remove(docid);
+              if (seedCountDB != null) {
+                  Transaction txn = env.beginTransaction(null, null);
+                  seedCountDB.delete(txn, key);
+                  txn.commit();
+              }
+          }
+          return;
+      }
+      
+      synchronized (mutex) {
+          seedCount.put(docid, value);
+          if (seedCountDB != null) {
+              DatabaseEntry val = new DatabaseEntry(Util.long2ByteArray(value));
+              Transaction txn = env.beginTransaction(null, null);
+              seedCountDB.put(txn, key, val);
+              txn.commit();
+          }
+      }
+  }
+  
+  public void seedIncrease(Integer docid) {
+      seedIncrease(docid, 1);
+  }
+  
+  public void seedIncrease(Integer docid, Integer amount) {
+      setSeedCount(docid, getSeedCount(docid) + amount);
+  }
+  
+  public void seedDecrease(Integer docid) {
+      seedDecrease(docid, 1);
+  }
+  
+  public void seedDecrease(Integer docid, Integer amount) {
+      setSeedCount(docid, getSeedCount(docid) - amount);
+  }
+   
   public void delete(int count) throws DatabaseException {
     synchronized (mutex) {
       int matches = 0;
@@ -112,6 +187,10 @@ public class WorkQueues {
         result = cursor.getFirst(key, value, null);
 
         while (matches < count && result == OperationStatus.SUCCESS) {
+          if (value.getData().length > 0) {
+            WebURL url = webURLBinding.entryToObject(value);
+            seedDecrease(url.getSeedDocid());
+          }
           cursor.delete();
           matches++;
           result = cursor.getNext(key, value, null);
@@ -153,6 +232,7 @@ public class WorkQueues {
   }
 
   public void put(WebURL url) throws DatabaseException {
+    seedIncrease(url.getSeedDocid());
     DatabaseEntry value = new DatabaseEntry();
     webURLBinding.objectToEntry(url, value);
     Transaction txn;
@@ -187,6 +267,8 @@ public class WorkQueues {
     }
     try {
       urlsDB.sync();
+      if (seedCountDB != null)
+        seedCountDB.sync();
     } catch (DatabaseException e) {
       e.printStackTrace();
     }
@@ -195,6 +277,8 @@ public class WorkQueues {
   public void close() {
     try {
       urlsDB.close();
+      if (seedCountDB != null)
+        seedCountDB.close();
     } catch (DatabaseException e) {
       e.printStackTrace();
     }

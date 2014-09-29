@@ -57,25 +57,20 @@ public class Frontier extends Configurable {
     this.docIdServer = docIdServer;
     try {
       workQueues = new WorkQueues(env, "PendingURLsDB", config.isResumableCrawling());
-      if (config.isResumableCrawling()) {
-        scheduledPages = counters.getValue(ReservedCounterNames.SCHEDULED_PAGES);
-        inProcessPages = new InProcessPagesDB(env);
-        long numPreviouslyInProcessPages = inProcessPages.getLength();
-        if (numPreviouslyInProcessPages > 0) {
-          logger.info("Rescheduling {} URLs from previous crawl.", numPreviouslyInProcessPages);
-          scheduledPages -= numPreviouslyInProcessPages;
-          while (true) {
-            List<WebURL> urls = inProcessPages.get(100);
-            if (urls.size() == 0) {
-              break;
-            }
-            scheduleAll(urls);
-            inProcessPages.delete(urls.size());
+      scheduledPages = counters.getValue(ReservedCounterNames.SCHEDULED_PAGES);
+      inProcessPages = new InProcessPagesDB(env, config.isResumableCrawling());
+      long numPreviouslyInProcessPages = inProcessPages.getLength();
+      if (numPreviouslyInProcessPages > 0) {
+        logger.info("Rescheduling {} URLs from previous crawl.", numPreviouslyInProcessPages);
+        scheduledPages -= numPreviouslyInProcessPages;
+        while (true) {
+          List<WebURL> urls = inProcessPages.get(100);
+          if (urls.size() == 0) {
+            break;
           }
+          scheduleAll(urls);
+          inProcessPages.delete(urls.size());
         }
-      } else {
-        inProcessPages = null;
-        scheduledPages = 0;
       }
     } catch (DatabaseException e) {
       logger.error("Error while initializing the Frontier: {}", e.getMessage());
@@ -171,6 +166,13 @@ public class Frontier extends Configurable {
   public long getQueueLength() {
     return workQueues.getLength();
   }
+  
+  public long numOffspring(Integer seedDocid) {
+    long inQueue = workQueues.getSeedCount(seedDocid);
+    if (inProcessPages != null)
+      inQueue += inProcessPages.getSeedCount(seedDocid);
+    return inQueue;
+  }
 
   public long getNumberOfAssignedPages() {
     return inProcessPages.getLength();
@@ -184,6 +186,8 @@ public class Frontier extends Configurable {
     workQueues.sync();
     docIdServer.sync();
     counters.sync();
+    if (inProcessPages != null)
+        inProcessPages.sync();
   }
 
   public boolean isFinished() {
