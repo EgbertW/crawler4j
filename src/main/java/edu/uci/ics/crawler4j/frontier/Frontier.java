@@ -127,10 +127,8 @@ public class Frontier extends Configurable {
         try {
           List<WebURL> curResults = workQueues.get(max);
           workQueues.delete(curResults.size());
-          if (inProcessPages != null) {
-            for (WebURL curPage : curResults) {
-              inProcessPages.put(curPage);
-            }
+          for (WebURL curPage : curResults) {
+            inProcessPages.put(curPage);
           }
           result.addAll(curResults);
         } catch (DatabaseException e) {
@@ -156,22 +154,17 @@ public class Frontier extends Configurable {
 
   public void setProcessed(WebURL webURL) {
     counters.increment(ReservedCounterNames.PROCESSED_PAGES);
-    if (inProcessPages != null) {
-      if (!inProcessPages.removeURL(webURL)) {
-        logger.warn("Could not remove: {} from list of processed pages.", webURL.getURL());
-      }
+    if (!inProcessPages.removeURL(webURL)) {
+      logger.warn("Could not remove: {} from list of processed pages.", webURL.getURL());
     }
   }
 
   public long getQueueLength() {
-    return workQueues.getLength();
+    return workQueues.getLength() + inProcessPages.getLength();
   }
   
   public long numOffspring(Integer seedDocid) {
-    long inQueue = workQueues.getSeedCount(seedDocid);
-    if (inProcessPages != null)
-      inQueue += inProcessPages.getSeedCount(seedDocid);
-    return inQueue;
+    return workQueues.getSeedCount(seedDocid) + inProcessPages.getSeedCount(seedDocid);
   }
 
   public long getNumberOfAssignedPages() {
@@ -186,8 +179,7 @@ public class Frontier extends Configurable {
     workQueues.sync();
     docIdServer.sync();
     counters.sync();
-    if (inProcessPages != null)
-        inProcessPages.sync();
+    inProcessPages.sync();
   }
 
   public boolean isFinished() {
@@ -198,15 +190,15 @@ public class Frontier extends Configurable {
     sync();
     workQueues.close();
     counters.close();
-    if (inProcessPages != null) {
-      inProcessPages.close();
-    }
+    inProcessPages.close();
   }
 
   public void finish() {
-    isFinished = true;
-    synchronized (waitingList) {
-      waitingList.notifyAll();
+    if (!isFinished) {
+      isFinished = true;
+      synchronized (waitingList) {
+        waitingList.notifyAll();
+      }
     }
   }
 }

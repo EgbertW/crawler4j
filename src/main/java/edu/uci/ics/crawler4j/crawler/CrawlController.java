@@ -168,8 +168,7 @@ public class CrawlController extends Configurable {
             synchronized (waitingLock) {
 
               while (true) {
-                sleep(10);
-                boolean someoneIsWorking = false;
+                sleep(1);
                 for (int i = 0; i < threads.size(); i++) {
                   Thread thread = threads.get(i);
                   if (!thread.isAlive()) {
@@ -187,39 +186,21 @@ public class CrawlController extends Configurable {
                       crawlers.remove(i);
                       crawlers.add(i, crawler);
                     }
-                  } else if (crawlers.get(i).isNotWaitingForNewURLs()) {
-                    someoneIsWorking = true;
-                  }
+                  } 
                 }
-                if (!someoneIsWorking) {
-                  // Make sure again that none of the threads
-                  // are
-                  // alive.
-                  logger.info("It looks like no thread is working, waiting for 10 seconds to make sure...");
-                  sleep(10);
-
-                  someoneIsWorking = false;
-                  for (int i = 0; i < threads.size(); i++) {
-                    Thread thread = threads.get(i);
-                    if (thread.isAlive() && crawlers.get(i).isNotWaitingForNewURLs()) {
-                      someoneIsWorking = true;
+                if (shuttingDown || frontier.getQueueLength() == 0) {
+                  if (!shuttingDown)
+                  {
+                    logger.info("No pages are in progress and none are enqueued. Waiting a second to make sure");
+                    sleep(1);
+                    if (frontier.getQueueLength() == 0)
+                    {
+                      logger.info("Still no pages are in progress and still none are enqueued. Finishing the process...");
+                      shuttingDown = true;
                     }
                   }
-                  if (!someoneIsWorking) {
-                    if (!shuttingDown) {
-                      long queueLength = frontier.getQueueLength();
-                      if (queueLength > 0) {
-                        continue;
-                      }
-                      logger.info("No thread is working and no more URLs are in queue waiting for another 10 seconds to make sure...");
-                      sleep(10);
-                      queueLength = frontier.getQueueLength();
-                      if (queueLength > 0) {
-                        continue;
-                      }
-                    }
-
-                    logger.info("All of the crawlers are stopped. Finishing the process...");
+                  
+                  if (shuttingDown) {
                     // At this step, frontier notifies the
                     // threads that were
                     // waiting for new URLs and they should
@@ -229,9 +210,10 @@ public class CrawlController extends Configurable {
                       crawler.onBeforeExit();
                       crawlersLocalData.add(crawler.getMyLocalData());
                     }
-
-                    logger.info("Waiting for 10 seconds before final clean up...");
-                    sleep(10);
+                    
+                    logger.info("Joining all running threads...");
+                    for (Thread t : threads)
+                        t.join();
 
                     frontier.close();
                     docIdServer.close();
@@ -240,6 +222,8 @@ public class CrawlController extends Configurable {
                     finished = true;
                     waitingLock.notifyAll();
                     env.close();
+                    
+                    logger.info("CrawlController ended");
 
                     return;
                   }
