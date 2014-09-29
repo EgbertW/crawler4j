@@ -349,6 +349,7 @@ public class CrawlController extends Configurable {
 
       WebURL webUrl = new WebURL();
       webUrl.setURL(canonicalUrl);
+      webUrl.setSeedDocid(docId);
       webUrl.setDocid(docId);
       webUrl.setDepth((short) 0);
       if (!robotstxtServer.allows(webUrl)) {

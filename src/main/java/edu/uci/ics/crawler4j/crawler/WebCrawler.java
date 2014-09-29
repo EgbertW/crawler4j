@@ -376,6 +376,7 @@ public class WebCrawler implements Runnable {
       for (WebURL webURL : parseData.getOutgoingUrls()) {
         webURL.setParentDocid(curURL.getDocid());
         webURL.setParentUrl(curURL.getURL());
+        webURL.setSeedDocid(curURL.getSeedDocid());
         int newdocid = docIdServer.getDocId(webURL.getURL());
         if (newdocid > 0) {
           // This is not the first time that this Url is
