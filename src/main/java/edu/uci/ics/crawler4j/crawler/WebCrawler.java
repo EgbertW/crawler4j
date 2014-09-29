@@ -331,6 +331,7 @@ public class WebCrawler implements Runnable {
             webURL.setURL(movedToUrl);
             webURL.setParentDocid(curURL.getParentDocid());
             webURL.setParentUrl(curURL.getParentUrl());
+            webURL.setSeedDocid(curURL.getSeedDocid());
             webURL.setDepth(curURL.getDepth());
             webURL.setDocid(-1);
             webURL.setAnchor(curURL.getAnchor());
