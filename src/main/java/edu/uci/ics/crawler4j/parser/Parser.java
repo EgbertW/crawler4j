@@ -61,7 +61,11 @@ public class Parser extends Configurable {
     if (Util.hasBinaryContent(page.getContentType())) {
       BinaryParseData parseData = new BinaryParseData();
       if (config.isIncludeBinaryContentInCrawling()) {
-        parseData.setBinaryContent(page.getContentData());
+        if (config.isProcessBinaryContentInCrawling()) {
+          parseData.setBinaryContent(page.getContentData());
+        } else {
+          parseData.setHtml("<html></html>");
+        }
         page.setParseData(parseData);
       } else {
         throw new NotAllowedContentException();
