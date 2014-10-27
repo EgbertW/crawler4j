@@ -19,6 +19,7 @@ package edu.uci.ics.crawler4j.fetcher;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketTimeoutException;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.zip.GZIPInputStream;
@@ -229,6 +230,10 @@ public class PageFetcher extends Configurable {
 
       get.abort();
 
+    } catch (SocketTimeoutException e) {
+      logger.error("Timeout while fetching page '{}': {}", toFetchURL, e.getMessage());
+      fetchResult.setStatusCode(CustomFetchStatus.FatalTransportError);
+      return fetchResult;
     } catch (IOException e) {
       if (toFetchURL.toLowerCase().endsWith("robots.txt")) {
         // Ignoring this Exception as it just means that we tried to parse a robots.txt file which this site doesn't have
