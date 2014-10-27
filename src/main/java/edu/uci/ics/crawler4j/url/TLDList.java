@@ -6,8 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Set;
@@ -20,40 +22,63 @@ public class TLDList {
   private final static String TLD_NAMES_ONLINE_URL = "https://publicsuffix.org/list/effective_tld_names.dat";
   private final static String TLD_NAMES_ZIP_FILENAME = "tld-names.zip";
   private final static String TLD_NAMES_TXT_FILENAME = "tld-names.txt";
-  private final static boolean TLD_NAMES_ONLINE_UPDATE = false;
   private final static Logger logger = LoggerFactory.getLogger(TLDList.class);
 
+  private static boolean online_update = false;
   private Set<String> tldSet = new HashSet<>(10000);
 
   private static TLDList instance = new TLDList(); // Singleton
 
   private TLDList() {
+    if (online_update)
+    {
+      URL url;
+      try {
+        url = new URL(TLD_NAMES_ONLINE_URL);
+      } catch (MalformedURLException e) {
+        // This cannot happen... No need to treat it
+        logger.error("Invalid URL: {}", TLD_NAMES_ONLINE_URL);
+        throw new RuntimeException(e);
+      }
+      
+      try (InputStream stream = url.openStream()) {
+        logger.debug("Fetching the most updated TLD list online");
+        readStream(stream);
+        return;
+      } catch (Exception ex) {
+        logger.error("Couldn't fetch the online list of TLDs from: {}", TLD_NAMES_ONLINE_URL);
+      }
+    }
+      
+    logger.info("Fetching the list from a local file {}", TLD_NAMES_ZIP_FILENAME);
+    String filename = this.getClass().getClassLoader().getResource(TLD_NAMES_ZIP_FILENAME).getFile();
+    ZipFile zipFile = null;
     try {
-      InputStream stream = null;
-      
-      if (TLD_NAMES_ONLINE_UPDATE)
-      {
-        try {
-          logger.debug("Fetching the most updated TLD list online");
-          URL url = new URL(TLD_NAMES_ONLINE_URL);
-          stream = url.openStream();
-        } catch (Exception ex) {
-          logger.warn("Couldn't fetch the online list of TLDs from: {}", TLD_NAMES_ONLINE_URL);
-        }
+      zipFile = new ZipFile(filename);
+    } catch (IOException e) {
+      logger.error("Couldn't read the TLD list from file");
+      throw new RuntimeException(e);
+    }
+    
+    ZipArchiveEntry entry = zipFile.getEntry(TLD_NAMES_TXT_FILENAME);
+    try (InputStream stream = zipFile.getInputStream(entry)) {
+      readStream(stream);
+      return;
+    } catch (IOException e) {
+      logger.error("Couldn't read the TLD list from file");
+      throw new RuntimeException(e);
+    } finally {
+      try {
+        zipFile.close();
+      } catch (IOException e) {
+       // Nothing, at least we tried :-)
       }
-      
-      if (stream == null) {
-        logger.info("Fetching the list from a local file {}", TLD_NAMES_ZIP_FILENAME);
-
-        ZipFile zipFile = new ZipFile(this.getClass().getClassLoader().getResource(TLD_NAMES_ZIP_FILENAME).getFile());
-        ZipArchiveEntry entry = zipFile.getEntry(TLD_NAMES_TXT_FILENAME);
-        stream = zipFile.getInputStream(entry);
-      }
-
-      if (stream == null) {
-        throw new Exception("Couldn't fetch the TLD list online or from a local file");
-      }
-      BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+    }
+  }
+ 
+  private void readStream(InputStream stream)
+  {
+    try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream))) {
       String line;
       while ((line = reader.readLine()) != null) {
         line = line.trim();
@@ -62,16 +87,19 @@ public class TLDList {
         }
         tldSet.add(line);
       }
-      reader.close();
-      stream.close();
-    } catch (Exception e) {
-      logger.error("Couldn't find " + TLD_NAMES_TXT_FILENAME, e);
-      System.exit(-1);
+    }
+    catch (IOException e)
+    {
+      logger.warn("Error while reading TLD-list: {}", e.getMessage());
     }
   }
 
   public static TLDList getInstance() {
     return instance;
+  }
+  
+  public static void setUseOnline(boolean online) {
+    online_update = online;
   }
 
   public boolean contains(String str) {

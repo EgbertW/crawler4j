@@ -19,13 +19,16 @@ package edu.uci.ics.crawler4j.crawler;
 
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
+
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.frontier.DocIDServer;
 import edu.uci.ics.crawler4j.frontier.Frontier;
 import edu.uci.ics.crawler4j.robotstxt.RobotstxtServer;
+import edu.uci.ics.crawler4j.url.TLDList;
 import edu.uci.ics.crawler4j.url.URLCanonicalizer;
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.IO;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,6 +89,9 @@ public class CrawlController extends Configurable {
       }
     }
 
+    TLDList.setUseOnline(config.isOnlineTldListUpdate());
+    TLDList.getInstance();
+    
     boolean resumable = config.isResumableCrawling();
 
     EnvironmentConfig envConfig = new EnvironmentConfig();
