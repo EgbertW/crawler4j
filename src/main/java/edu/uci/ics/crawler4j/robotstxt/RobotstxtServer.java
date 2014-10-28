@@ -42,7 +42,7 @@ public class RobotstxtServer {
 
   protected RobotstxtConfig config;
 
-  protected final Map<String, HostDirectives> host2directivesCache = new HashMap<>();
+  protected final Map<String, HostDirectives []> host2directivesCache = new HashMap<>();
 
   protected PageFetcher pageFetcher;
 
@@ -64,9 +64,9 @@ public class RobotstxtServer {
       String host = getHost(url);
       String path = url.getPath();
 
-      HostDirectives directives = host2directivesCache.get(host);
+      HostDirectives directives [] = host2directivesCache.get(host);
 
-      if (directives != null && directives.needsRefetch()) {
+      if (directives != null && directives[0].needsRefetch()) {
         synchronized (host2directivesCache) {
           host2directivesCache.remove(host);
           directives = null;
@@ -76,19 +76,19 @@ public class RobotstxtServer {
       if (directives == null) {
         directives = fetchDirectives(url);
       }
-      return directives.allows(path);
+      return directives[1].allows(path) || directives[0].allows(path);
     } catch (MalformedURLException e) {
       e.printStackTrace();
     }
     return true;
   }
 
-  private HostDirectives fetchDirectives(URL url) {
+  private HostDirectives [] fetchDirectives(URL url) {
     WebURL robotsTxtUrl = new WebURL();
     String host = getHost(url);
     String port = (url.getPort() == url.getDefaultPort() || url.getPort() == -1) ? "" : ":" + url.getPort();
     robotsTxtUrl.setURL("http://" + host + port + "/robots.txt");
-    HostDirectives directives = null;
+    HostDirectives [] directives = null;
     PageFetchResult fetchResult = null;
     try {
       fetchResult = pageFetcher.fetchHeader(robotsTxtUrl);
@@ -117,15 +117,16 @@ public class RobotstxtServer {
     if (directives == null) {
       // We still need to have this object to keep track of the time we
       // fetched it
-      directives = new HostDirectives();
+      HostDirectives result [] =  {new HostDirectives(), new HostDirectives()};
+      directives = result;
     }
     synchronized (host2directivesCache) {
       if (host2directivesCache.size() == config.getCacheSize()) {
         String minHost = null;
         long minAccessTime = Long.MAX_VALUE;
-        for (Entry<String, HostDirectives> entry : host2directivesCache.entrySet()) {
-          if (entry.getValue().getLastAccessTime() < minAccessTime) {
-            minAccessTime = entry.getValue().getLastAccessTime();
+        for (Entry<String, HostDirectives []> entry : host2directivesCache.entrySet()) {
+            if (entry.getValue()[0].getLastAccessTime() < minAccessTime) {
+            minAccessTime = entry.getValue()[0].getLastAccessTime();
             minHost = entry.getKey();
           }
         }

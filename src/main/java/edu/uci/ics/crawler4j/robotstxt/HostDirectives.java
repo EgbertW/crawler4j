@@ -46,7 +46,10 @@ public class HostDirectives {
   }
 
   public void addDisallow(String path) {
-    disallows.add(path);
+    if (path.isEmpty())
+        disallows.clear();
+    else
+        disallows.add(path);
   }
 
   public void addAllow(String path) {
