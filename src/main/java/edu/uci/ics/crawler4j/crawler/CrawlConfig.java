@@ -112,6 +112,12 @@ public class CrawlConfig {
    * https://publicsuffix.org/list/effective_tld_names.dat
    */
   private boolean onlineTldListUpdate = false;
+  
+  /**
+   * Should the robots.txt directives be ignored when adding a seed? If this is set to true,
+   * a seed will be fetched even if robots.txt disallows it.
+   */
+  private boolean ignoreRobotsTxtForSeed = false;
 
   /**
    * If crawler should run behind a proxy, this parameter can be used for
@@ -359,6 +365,18 @@ public class CrawlConfig {
    */
   public void setOnlineTldListUpdate(boolean online) {
       onlineTldListUpdate = online;
+  }
+  
+  public boolean isIgnoreRobotsTxtForSeed() {
+      return ignoreRobotsTxtForSeed;
+  }
+  
+  /**
+   * Should the robots.txt directives be ignored when adding a seed? If this is set to true,
+   * a seed will be fetched even if robots.txt disallows it.
+   */
+  public void setIgnoreRobotsTxtForSeed(boolean ignore) {
+      ignoreRobotsTxtForSeed = ignore;
   }
 
   public String getProxyHost() {
