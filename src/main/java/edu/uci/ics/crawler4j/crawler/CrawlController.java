@@ -194,7 +194,8 @@ public class CrawlController extends Configurable {
                     }
                   } 
                 }
-                if (shuttingDown || frontier.getQueueLength() == 0) {
+                boolean shut_on_empty = config.isShutdownOnEmptyQueue();
+                if (shuttingDown || (shut_on_empty && frontier.getQueueLength() == 0)) {
                   if (!shuttingDown)
                   {
                     logger.info("No pages are in progress and none are enqueued. Waiting a second to make sure");
@@ -347,9 +348,10 @@ public class CrawlController extends Configurable {
       webUrl.setDepth((short) 0);
       if (!config.isIgnoreRobotsTxtForSeed() && !robotstxtServer.allows(webUrl)) {
         logger.info("Robots.txt does not allow this seed: {}", pageUrl);
-      } else {
-        frontier.schedule(webUrl);
+        return -1;
       }
+      
+      frontier.schedule(webUrl);
       return docId;
   }
 
