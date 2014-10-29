@@ -164,7 +164,7 @@ public class Frontier extends Configurable {
     return workQueues.getLength() + inProcessPages.getLength();
   }
   
-  public long numOffspring(Integer seedDocid) {
+  public int numOffspring(Integer seedDocid) {
     return workQueues.getSeedCount(seedDocid) + inProcessPages.getSeedCount(seedDocid);
   }
 

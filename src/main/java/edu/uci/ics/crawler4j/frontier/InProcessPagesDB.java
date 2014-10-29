@@ -49,8 +49,8 @@ public class InProcessPagesDB extends WorkQueues {
   }
 
   public boolean removeURL(WebURL webUrl) {
-    this.seedDecrease(webUrl.getSeedDocid());
     synchronized (mutex) {
+      boolean removed = false;
       try {
         DatabaseEntry key = getDatabaseEntryKey(webUrl);
         Cursor cursor = null;
@@ -86,6 +86,8 @@ public class InProcessPagesDB extends WorkQueues {
           if (txn != null) {
             txn.commit();
           }
+          if (removed && webUrl.getSeedDocid() >= 0)
+              seedDecrease(webUrl.getSeedDocid());
         }
       } catch (Exception e) {
         e.printStackTrace();

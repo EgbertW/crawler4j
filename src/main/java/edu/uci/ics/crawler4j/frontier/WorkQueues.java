@@ -54,6 +54,7 @@ public class WorkQueues {
     
     // Load seed count from database
     if (resumable) {
+      dbConfig.setSortedDuplicates(false);
       seedCountDB = env.openDatabase(null, dbName + "_seedcount", dbConfig);
       OperationStatus result;
       DatabaseEntry key = new DatabaseEntry();
@@ -64,8 +65,8 @@ public class WorkQueues {
 
       while (result == OperationStatus.SUCCESS) {
         if (value.getData().length > 0) {
-          Integer docid = new Long(Util.byteArray2Long(key.getData())).intValue();
-          Integer counterValue = new Long(Util.byteArray2Long(value.getData())).intValue();
+          Integer docid = Util.byteArray2Int(key.getData());
+          Integer counterValue = Util.byteArray2Int(value.getData());
           seedCount.put(docid, counterValue);
         }
         result = cursor.getNext(key, value, null);
@@ -127,7 +128,7 @@ public class WorkQueues {
   }
   
   public void setSeedCount(Integer docid, Integer value) {
-      DatabaseEntry key = new DatabaseEntry(Util.long2ByteArray(docid));
+      DatabaseEntry key = new DatabaseEntry(Util.int2ByteArray(docid));
       if (value <= 0)
       {
           synchronized (mutex) {
@@ -144,7 +145,7 @@ public class WorkQueues {
       synchronized (mutex) {
           seedCount.put(docid, value);
           if (seedCountDB != null) {
-              DatabaseEntry val = new DatabaseEntry(Util.long2ByteArray(value));
+              DatabaseEntry val = new DatabaseEntry(Util.int2ByteArray(value));
               Transaction txn = env.beginTransaction(null, null);
               seedCountDB.put(txn, key, val);
               txn.commit();
@@ -157,15 +158,17 @@ public class WorkQueues {
   }
   
   public void seedIncrease(Integer docid, Integer amount) {
-      setSeedCount(docid, getSeedCount(docid) + amount);
+      synchronized (mutex) {
+          setSeedCount(docid, getSeedCount(docid) + amount);
+      }
   }
   
   public void seedDecrease(Integer docid) {
-      seedDecrease(docid, 1);
+      seedIncrease(docid, -1);
   }
   
   public void seedDecrease(Integer docid, Integer amount) {
-      setSeedCount(docid, getSeedCount(docid) - amount);
+      seedIncrease(docid, -amount);
   }
    
   public void delete(int count) throws DatabaseException {
@@ -232,7 +235,9 @@ public class WorkQueues {
   }
 
   public void put(WebURL url) throws DatabaseException {
-    seedIncrease(url.getSeedDocid());
+    if (url.getSeedDocid() >= 0)
+        seedIncrease(url.getSeedDocid());
+    
     DatabaseEntry value = new DatabaseEntry();
     webURLBinding.objectToEntry(url, value);
     Transaction txn;
