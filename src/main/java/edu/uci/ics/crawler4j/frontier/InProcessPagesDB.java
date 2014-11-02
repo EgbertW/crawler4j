@@ -69,6 +69,7 @@ public class InProcessPagesDB extends WorkQueues {
           if (result == OperationStatus.SUCCESS) {
             result = cursor.delete();
             if (result == OperationStatus.SUCCESS) {
+              removed = true;
               return true;
             }
           }
@@ -88,6 +89,8 @@ public class InProcessPagesDB extends WorkQueues {
           }
           if (removed && webUrl.getSeedDocid() >= 0)
               seedDecrease(webUrl.getSeedDocid());
+          else
+              logger.error("URL {} was not present in list of processed pages", webUrl.getURL());
         }
       } catch (Exception e) {
         e.printStackTrace();

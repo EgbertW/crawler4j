@@ -235,9 +235,7 @@ public class WorkQueues {
   }
 
   public void put(WebURL url) throws DatabaseException {
-    if (url.getSeedDocid() >= 0)
-        seedIncrease(url.getSeedDocid());
-    
+    seedIncrease(url.getSeedDocid());
     DatabaseEntry value = new DatabaseEntry();
     webURLBinding.objectToEntry(url, value);
     Transaction txn;

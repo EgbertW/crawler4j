@@ -155,19 +155,25 @@ public class Frontier extends Configurable {
 
   public void setProcessed(WebURL webURL) {
     counters.increment(ReservedCounterNames.PROCESSED_PAGES);
-    if (!inProcessPages.removeURL(webURL)) {
-      logger.warn("Could not remove: {} from list of processed pages.", webURL.getURL());
+    synchronized (mutex) {
+      if (!inProcessPages.removeURL(webURL)) {
+        logger.warn("Could not remove: {} from list of processed pages.", webURL.getURL());
+      }
     }
   }
 
   public long getQueueLength() {
-    return workQueues.getLength() + inProcessPages.getLength();
+    synchronized (mutex) {
+      return workQueues.getLength() + inProcessPages.getLength();
+    }
   }
   
   public int numOffspring(Integer seedDocid) {
-    return workQueues.getSeedCount(seedDocid) + inProcessPages.getSeedCount(seedDocid);
+    synchronized (mutex) {
+      return workQueues.getSeedCount(seedDocid) + inProcessPages.getSeedCount(seedDocid);
+    }
   }
-
+  
   public long getNumberOfAssignedPages() {
     return inProcessPages.getLength();
   }
