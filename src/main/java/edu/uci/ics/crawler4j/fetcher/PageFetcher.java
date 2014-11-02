@@ -19,6 +19,8 @@ package edu.uci.ics.crawler4j.fetcher;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.NoRouteToHostException;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.security.cert.X509Certificate;
@@ -37,6 +39,7 @@ import org.apache.http.HttpResponseInterceptor;
 import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.config.RequestConfig;
@@ -231,11 +234,15 @@ public class PageFetcher extends Configurable {
       }
 
       get.abort();
-    } catch (UnknownHostException e) {
-        logger.error("Unknown host {} while fetching URL", e.getMessage(), toFetchURL);
+    } catch (NullPointerException e) {
+        logger.error("Empty page resulted from fetching URL {}. Error: {}", toFetchURL, e.getMessage());
         fetchResult.setStatusCode(CustomFetchStatus.UnknownHostError);
         return fetchResult;
-    } catch (SocketTimeoutException | ConnectTimeoutException e) {
+    } catch (UnknownHostException | NoRouteToHostException | ClientProtocolException e) {
+        logger.error("Problem with hostname in URL {}. Error: {}", toFetchURL, e.getMessage());
+        fetchResult.setStatusCode(CustomFetchStatus.UnknownHostError);
+        return fetchResult;
+    } catch (SocketTimeoutException | ConnectTimeoutException | SocketException e) {
       logger.error("Timeout while fetching page '{}': {}", toFetchURL, e.getMessage());
       fetchResult.setStatusCode(CustomFetchStatus.SocketTimeoutError);
       return fetchResult;
