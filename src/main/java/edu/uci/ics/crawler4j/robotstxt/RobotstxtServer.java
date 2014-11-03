@@ -97,13 +97,17 @@ public class RobotstxtServer {
         fetchResult.fetchContent(page);
         if (Util.hasPlainTextContent(page.getContentType())) {
           try {
-            String content;
-            if (page.getContentCharset() == null) {
-              content = new String(page.getContentData());
+            String content = "";
+            if (page.getContentData() != null) {
+              if (page.getContentCharset() == null && page.getContentData() != null) {
+                content = new String(page.getContentData());
+              } else {
+                content = new String(page.getContentData(), page.getContentCharset());
+              }
+              directives = RobotstxtParser.parse(content, config.getUserAgentName());
             } else {
-              content = new String(page.getContentData(), page.getContentCharset());
+              logger.info("No data received for robots.txt retrieved from URL: {}", robotsTxtUrl.getURL());
             }
-            directives = RobotstxtParser.parse(content, config.getUserAgentName());
           } catch (Exception e) {
             logger.error("Error occurred while fetching (robots) url: " + robotsTxtUrl.getURL(), e);
           }
