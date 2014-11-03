@@ -26,7 +26,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.cert.X509Certificate;
-import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.zip.GZIPInputStream;
 
 import javax.net.ssl.SSLContext;
@@ -72,6 +75,26 @@ import edu.uci.ics.crawler4j.url.WebURL;
  * @author Yasser Ganjisaffar <lastname at gmail dot com>
  */
 public class PageFetcher extends Configurable {
+    
+  private static class RecentHost implements Comparable<RecentHost> {
+    private String host;
+    private Long time;
+        
+    private RecentHost(String host, Long time) {
+        this.host = host;
+        this.time = time;
+    }
+    
+    @Override
+    public int compareTo(RecentHost o)
+    {
+      int res = time.compareTo(o.time);
+      if (res != 0)
+        return res;
+      return host.compareTo(o.host);
+    }      
+  }
+
 
   protected static final Logger logger = LoggerFactory.getLogger(PageFetcher.class);
 
@@ -81,12 +104,14 @@ public class PageFetcher extends Configurable {
 
   protected final Object mutex = new Object();
 
-  protected long lastFetchTime = 0;
+  protected Map<String, Long> lastFetchTimes;
+  
+  protected TreeSet<RecentHost> recentHosts;
   
   protected Long fetchErrorCounter = 0l;
 
   protected IdleConnectionMonitorThread connectionMonitorThread = null;
-
+  
   public PageFetcher(CrawlConfig config) {
     super(config);
 
@@ -157,12 +182,72 @@ public class PageFetcher extends Configurable {
       }
     });
 
+    lastFetchTimes = new HashMap<String, Long>();
+    recentHosts = new TreeSet<RecentHost>();
+    
     httpClient = clientBuilder.build();
 
     if (connectionMonitorThread == null) {
       connectionMonitorThread = new IdleConnectionMonitorThread(connectionManager);
     }
     connectionMonitorThread.start();
+  }
+  
+  protected void enforcePolitenessDelay(WebURL webUrl) {
+   long std_delay = config.getPolitenessDelay();
+   long delay = std_delay;
+   long now = System.currentTimeMillis();
+   
+   // Remove pages visited more than the politeness delay ago
+   synchronized (lastFetchTimes) {
+     RecentHost boundary = new RecentHost("", now - std_delay);
+     Set<RecentHost> rel_to_remove = recentHosts.headSet(boundary);
+     if (!rel_to_remove.isEmpty())
+     {
+       Set<RecentHost> to_remove = new TreeSet<RecentHost>(rel_to_remove);
+       for (RecentHost host : to_remove)
+       {
+         lastFetchTimes.remove(host);
+         recentHosts.remove(host);
+       }
+     }
+   }
+   
+   // Update now timestamp and calculate delay
+   now = System.currentTimeMillis();
+   try {
+     URI url = new URI(webUrl.getURL());
+     String host = url.getHost();
+     
+     synchronized (lastFetchTimes) {
+       Long lastFetchTime = lastFetchTimes.get(host);
+       RecentHost currentEntry = null;
+       if (lastFetchTime != null)
+       {
+         // Calculate delay and store new fetch time
+         delay = Math.max(0, std_delay - (now - lastFetchTime));
+         currentEntry = new RecentHost(host, lastFetchTime);
+         recentHosts.remove(currentEntry);
+         currentEntry.time = now + delay;
+       }
+       else
+       {
+         currentEntry = new RecentHost(host, now);
+       }
+       recentHosts.add(currentEntry);
+       lastFetchTimes.put(host, currentEntry.time);
+     }
+   }
+   catch (URISyntaxException e)
+   {}
+   
+   if (delay > 0) {
+     try {
+       Thread.sleep(delay);
+     }
+     catch (InterruptedException e)
+     {}
+   }
   }
 
   public PageFetchResult fetchHeader(WebURL webUrl) {
@@ -171,13 +256,8 @@ public class PageFetcher extends Configurable {
     HttpGet get = null;
     try {
       get = new HttpGet(toFetchURL);
-      synchronized (mutex) {
-        long now = (new Date()).getTime();
-        if (now - lastFetchTime < config.getPolitenessDelay()) {
-          Thread.sleep(config.getPolitenessDelay() - (now - lastFetchTime));
-        }
-        lastFetchTime = (new Date()).getTime();
-      }
+      
+      enforcePolitenessDelay(webUrl);
 
       HttpResponse response = httpClient.execute(get);
       fetchResult.setEntity(response.getEntity());
