@@ -281,7 +281,9 @@ public class WebCrawler implements Runnable {
           e.printStackTrace();
         }
       } else {
-        for (WebURL curURL : assignedURLs) {
+        while (!assignedURLs.isEmpty()) {
+          WebURL curURL = pageFetcher.getBestURL(assignedURLs);
+          assignedURLs.remove(curURL);
           if (curURL != null) {
             int seedDocid = curURL.getSeedDocid();
             curURL = handleUrlBeforeProcess(curURL);

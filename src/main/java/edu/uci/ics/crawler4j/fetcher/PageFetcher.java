@@ -26,6 +26,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.cert.X509Certificate;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -193,6 +194,50 @@ public class PageFetcher extends Configurable {
     connectionMonitorThread.start();
   }
   
+  public WebURL getBestURL(Collection<WebURL> urls) {
+      long now = System.currentTimeMillis();
+      long std_delay = config.getPolitenessDelay();
+      long min_delay = std_delay;
+      WebURL min_url = null;
+      synchronized (lastFetchTimes) {
+          for (WebURL webUrl : urls)
+          {
+            try
+            {
+                URI url = new URI(webUrl.getURL());
+                String host = url.getHost();
+                Long ft = lastFetchTimes.get(host);
+                long delay = 0;
+                if (ft != null)
+                    delay = std_delay - (now - ft);
+                if (delay <= 0)
+                    return webUrl;
+                
+                if (delay < min_delay)
+                {
+                    min_delay = delay;
+                    min_url = webUrl;
+                }
+            }
+            catch (URISyntaxException e)
+            {
+                // Invalid URL, will not succeed, might as well get over with it
+                return webUrl;
+            }
+          }
+      }
+      
+      if (min_url != null)
+          return min_url;
+      
+      // All items must have a delay, or the queue is empty
+      if (urls.size() == 0)
+          return null;
+      
+      // Just return the first one
+      return urls.iterator().next();
+  }
+  
   protected void enforcePolitenessDelay(WebURL webUrl) {
    long std_delay = config.getPolitenessDelay();
    long delay = std_delay;
@@ -239,7 +284,9 @@ public class PageFetcher extends Configurable {
      }
    }
    catch (URISyntaxException e)
-   {}
+   {
+       delay = 0;
+   }
    
    if (delay > 0) {
      try {
