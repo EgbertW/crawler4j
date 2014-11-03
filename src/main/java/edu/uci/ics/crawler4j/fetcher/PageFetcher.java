@@ -22,6 +22,8 @@ import java.io.InputStream;
 import java.net.NoRouteToHostException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.cert.X509Certificate;
 import java.util.Date;
@@ -47,6 +49,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.ConnectTimeoutException;
+import org.apache.http.conn.HttpHostConnectException;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
@@ -80,6 +83,8 @@ public class PageFetcher extends Configurable {
   protected final Object mutex = new Object();
 
   protected long lastFetchTime = 0;
+  
+  protected Long fetchErrorCounter = 0l;
 
   protected IdleConnectionMonitorThread connectionMonitorThread = null;
 
@@ -234,35 +239,9 @@ public class PageFetcher extends Configurable {
       }
 
       get.abort();
-    } catch (NullPointerException e) {
-        logger.error("Empty page resulted from fetching URL {}. Error: {}", toFetchURL, e.getMessage());
-        fetchResult.setStatusCode(CustomFetchStatus.UnknownHostError);
-        return fetchResult;
-    } catch (UnknownHostException | NoRouteToHostException | ClientProtocolException e) {
-        logger.error("Problem with hostname in URL {}. Error: {}", toFetchURL, e.getMessage());
-        fetchResult.setStatusCode(CustomFetchStatus.UnknownHostError);
-        return fetchResult;
-    } catch (SocketTimeoutException | ConnectTimeoutException | SocketException e) {
-      logger.error("Timeout while fetching page '{}': {}", toFetchURL, e.getMessage());
-      fetchResult.setStatusCode(CustomFetchStatus.SocketTimeoutError);
-      return fetchResult;
-    } catch (IOException e) {
-      if (toFetchURL.toLowerCase().endsWith("robots.txt")) {
-        // Ignoring this Exception as it just means that we tried to parse a robots.txt file which this site doesn't have
-        // Which is ok, so no exception should be thrown
-      } else {
-        logger.error("Fatal transport error: {} while fetching {} (link found in doc #{})",
-            e.getMessage() != null ? e.getMessage() : e.getCause(), toFetchURL, webUrl.getParentDocid());
-        logger.debug("Stacktrace: ", e);
-        fetchResult.setStatusCode(CustomFetchStatus.FatalTransportError);
-        return fetchResult;
-      }
-    } catch (IllegalStateException e) {
-      // ignoring exceptions that occur because of not registering https
-      // and other schemes
     } catch (Exception e) {
-      logger.error("{} Error while fetching {}", e.getMessage() != null ? e.getMessage() : e.getCause(), webUrl.getURL());
-      logger.debug("Stacktrace:", e);
+      handleException(webUrl, e, fetchResult);
+      return fetchResult;
     } finally {
       try {
         if (fetchResult.getEntity() == null && get != null) {
@@ -272,11 +251,104 @@ public class PageFetcher extends Configurable {
         e.printStackTrace();
       }
     }
+    // If the request was not handled, something went wrong. Report unknown error.
     fetchResult.setStatusCode(CustomFetchStatus.UnknownError);
     logger.error("Failed: Unknown error occurred while fetching {}", webUrl.getURL());
     return fetchResult;
   }
+  
+  /**
+   * Handle any exceptions that occur during the fetching of the page. 
+   * 
+   * @param webUrl The URL that it attempted to retrieve
+   * @param e The exception that was thrown
+   * @param fetchResult The fetch result, may be changed to give status information
+   */
+  private void handleException(WebURL webUrl, Exception e, PageFetchResult fetchResult) {
+    // Get a unique ID for this fetch error to keep the overview of multiple 
+    // messages in case of a synchronous logging over multiple threads
+    long cur_error;
+    synchronized (fetchErrorCounter) {
+        cur_error = ++fetchErrorCounter;
+    }
+    
+    // The message that should be logged
+    Object msg = e.getMessage() != null && !e.getMessage().isEmpty() ? e.getMessage() : e.getCause();
+    
+    // First parse the URL into a URI object
+    URI url;
+    try {
+      url = new URI(webUrl.getURL());
+    } catch (URISyntaxException uri_ex) {
+      logger.error("[Fetch error #{}] Invalid URL {} caused an exception: {}", cur_error, webUrl.getURL(), msg);
+      logger.debug("[Fetch error #{}] Stacktrace: ", cur_error, e);
+      return;
+    }
+    
+    if (url.toString().toLowerCase().endsWith("robots.txt")) {
+      // Ignoring this Exception as it just means that we tried to parse a robots.txt file which this site doesn't have
+      // Which is ok, so no exception should be thrown
+      logger.error("[Fetch error #{}] Could not retrieve robots.txt from {}: {}", cur_error, url, msg);
+      return;
+    }
 
+    boolean log = true;
+    boolean log_as_error = false;
+    
+    logger.error("[Fetch error #{}] An exception occurred while fetching {}: {}", cur_error, webUrl.getURL(), e.getMessage() != null ? e.getMessage() : e.getCause());
+    logger.debug("[Fetch error #{}] Exception class: {}", cur_error, e.getClass().getName());
+    
+    if (e instanceof NullPointerException) {
+      logger.error("[Fetch error #{}] Empty page", cur_error, msg);
+      fetchResult.setStatusCode(CustomFetchStatus.PageEmpty);
+    } else if (e instanceof NoRouteToHostException) {
+      logger.error("[Fetch error #{}] No route to hostname {}. Error: {}", cur_error, url.getHost(), msg);
+    } else if (e instanceof HttpHostConnectException) {
+      logger.error("[Fetch errro #{}] Could not establish connection to host {}. Error: {}", cur_error, url.getHost(), msg);
+      fetchResult.setStatusCode(CustomFetchStatus.ConnectionRefused);
+    } else if (e instanceof UnknownHostException) {
+      logger.error("[Fetch error #{}] Unknown host {}. Error: {}", cur_error, url.getHost(), msg);
+      fetchResult.setStatusCode(CustomFetchStatus.UnknownHostError);
+    } else if (e instanceof SocketTimeoutException || e instanceof ConnectTimeoutException || e instanceof SocketException) {
+      logger.error("[Fetch error #{}] Timeout while fetching page: {}", cur_error, msg);
+      fetchResult.setStatusCode(CustomFetchStatus.SocketTimeoutError);
+    } else if (e instanceof IOException) {
+      logger.error("[Fetch error #{}] Fatal transport error: {})", cur_error, msg);
+      fetchResult.setStatusCode(CustomFetchStatus.FatalTransportError);
+    } else if (e instanceof IllegalStateException) {
+      logger.error("[Fetch error #{}] IllegalStateException: {}", cur_error, msg);
+      // ignoring exceptions that occur because of not registering https
+      // and other schemes
+    } else {
+      // Escalate log level for unexpected errors to 
+      log_as_error = true;
+      logger.error("[Fetch error #{}] Unexpected error: {}", cur_error, msg);
+    }
+    
+    // Log diagnostic information about the exception and the URL 
+    if (log_as_error)
+    {
+      logger.error("[Fetch error #{}] Diagnostic information", cur_error);
+      logger.error("[Fetch error #{}] Seed document ID: {}", cur_error, webUrl.getSeedDocid());
+      if (webUrl.getParentUrl() != null && !webUrl.getParentUrl().isEmpty()) {
+          logger.error("[Fetch error #{}] Parent doc id: {}", cur_error, webUrl.getParentDocid());
+          logger.error("[Fetch error #{}] Parent URL: {}", cur_error, webUrl.getParentUrl());
+      }
+      logger.error("[Fetch error #{}] Crawl depth: {}", cur_error, webUrl.getDepth());
+      logger.error("[Fetch error #{}] Stacktrace:", e);
+    } else if (log) {
+      logger.debug("[Fetch error #{}] Diagnostic information", cur_error);
+      logger.debug("[Fetch error #{}] Seed document ID: {}", cur_error, webUrl.getSeedDocid());
+      if (webUrl.getParentUrl() != null && !webUrl.getParentUrl().isEmpty()) {
+        logger.debug("[Fetch error #{}] Parent doc id: {}", cur_error, webUrl.getParentDocid());
+        logger.debug("[Fetch error #{}] Parent URL: {}", cur_error, webUrl.getParentUrl());
+      }
+      logger.debug("[Fetch error #{}] Crawl depth: {}", cur_error, webUrl.getDepth());
+      if (logger.isTraceEnabled())
+        logger.trace("[Fetch error #" + cur_error + "] Stacktrace:", e);
+    }
+  }
+  
   public synchronized void shutDown() {
     if (connectionMonitorThread != null) {
       connectionManager.shutdown();
