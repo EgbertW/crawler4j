@@ -286,8 +286,9 @@ public class WebCrawler implements Runnable {
           assignedURLs.remove(curURL);
           if (curURL != null) {
             int seedDocid = curURL.getSeedDocid();
-            curURL = handleUrlBeforeProcess(curURL);
-            processPage(curURL);
+            WebURL fetchURL = handleUrlBeforeProcess(curURL);
+            if (fetchURL != null)
+              processPage(fetchURL);
             curURL.setSeedDocid(seedDocid);
             frontier.setProcessed(curURL);
             if (frontier.numOffspring(seedDocid) == 0)
