@@ -208,4 +208,16 @@ public class Frontier extends Configurable {
       }
     }
   }
+  
+  /**
+   * Allow a certain piece of code to be run synchronously. This method
+   * acquires the mutex and then runs the run method in the provided runnable.
+   * 
+   * @param r The object on which to run the run method synchronized
+   */
+  public void runSync(Runnable r) {
+      synchronized (mutex) {
+          r.run();
+      }
+  }
 }
