@@ -252,6 +252,11 @@ public class PageFetcher extends Configurable {
        Set<RecentHost> to_remove = new TreeSet<RecentHost>(rel_to_remove);
        for (RecentHost host : to_remove)
        {
+         if (host == null)
+         {
+           logger.error("Host is null in cleaning up page fetch recent host list");
+           continue;
+         }
          lastFetchTimes.remove(host);
          recentHosts.remove(host);
        }
@@ -263,6 +268,11 @@ public class PageFetcher extends Configurable {
    try {
      URI url = new URI(webUrl.getURL());
      String host = url.getHost();
+     if (host == null)
+     {
+       logger.error("No host name in URL: {}", url.toString());
+       throw new URISyntaxException(webUrl.getURL(), "No host name in URL");
+     }
      
      synchronized (lastFetchTimes) {
        Long lastFetchTime = lastFetchTimes.get(host);
@@ -425,6 +435,7 @@ public class PageFetcher extends Configurable {
     logger.debug("[Fetch error #{}] Exception class: {}", cur_error, e.getClass().getName());
     
     if (e instanceof NullPointerException) {
+      log_as_error = true;
       logger.error("[Fetch error #{}] Empty page", cur_error, msg);
       fetchResult.setStatusCode(CustomFetchStatus.PageEmpty);
     } else if (e instanceof NoRouteToHostException) {
