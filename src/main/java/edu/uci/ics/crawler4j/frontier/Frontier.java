@@ -145,10 +145,10 @@ public class Frontier extends Configurable {
         }
       }
       synchronized (waitingList) {
-        waitingList.notifyAll();
-      }
-      if (isFinished) {
-        return;
+        try {
+          waitingList.wait();
+        } catch (InterruptedException e)
+        {}
       }
     }
   }
