@@ -435,7 +435,6 @@ public class PageFetcher extends Configurable {
     logger.debug("[Fetch error #{}] Exception class: {}", cur_error, e.getClass().getName());
     
     if (e instanceof NullPointerException) {
-      log_as_error = true;
       logger.error("[Fetch error #{}] Empty page", cur_error, msg);
       fetchResult.setStatusCode(CustomFetchStatus.PageEmpty);
     } else if (e instanceof NoRouteToHostException) {
