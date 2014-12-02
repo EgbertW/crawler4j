@@ -122,6 +122,36 @@ public class Frontier extends Configurable {
       waitingList.notifyAll();
     }
   }
+  
+  /**
+   * Remove all document IDs from the DocIDServer. This allows to re-crawl
+   * pages that have been visited before, which can be useful in a long-running
+   * crawler that may revisit pages after a certain amount of time.
+   * 
+   * This method will wait until all queues are empty to avoid purging DocIDs
+   * that are still will be crawled before actually clearing the database, so make
+   * sure the crawler is running when executing this method.
+   */
+  public void clearDocIDs() {
+    while (true) {
+      if (getQueueLength() > 0) {
+        synchronized (waitingList) {
+          try {
+            waitingList.wait(2000);
+          } catch (InterruptedException e)
+          {}
+        }
+      } else {
+        synchronized (mutex) {
+          if (getQueueLength() > 0)
+            continue;
+          docIdServer.clear();
+          logger.info("Document ID Server has been emptied.");
+          break;
+        }
+      }
+    }
+  }
 
   public void getNextURLs(int max, List<WebURL> result) {
     while (true) {
