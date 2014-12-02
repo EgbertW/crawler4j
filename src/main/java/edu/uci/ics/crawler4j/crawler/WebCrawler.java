@@ -282,17 +282,28 @@ public class WebCrawler implements Runnable {
         }
       } else {
         while (!assignedURLs.isEmpty()) {
-          WebURL curURL = pageFetcher.getBestURL(assignedURLs);
+          final WebURL curURL = pageFetcher.getBestURL(assignedURLs);
           assignedURLs.remove(curURL);
           if (curURL != null) {
-            int seedDocid = curURL.getSeedDocid();
+            final int seedDocid = curURL.getSeedDocid();
             WebURL fetchURL = handleUrlBeforeProcess(curURL);
             if (fetchURL != null)
               processPage(fetchURL);
             curURL.setSeedDocid(seedDocid);
-            frontier.setProcessed(curURL);
-            if (frontier.numOffspring(seedDocid) == 0)
-              handleSeedEnd(seedDocid);
+            
+            // Run synchronized within the frontier because
+            // setProcessed may be executed twice by two different threads,
+            // resulting in a decrease of the seed counter from 2 to 0,
+            // after which both threads will execute the handleSeedEnd.
+            // To avoid this, setProcessed, numOffSpring and handleSeedEnd
+            // should all be run atomically.
+            frontier.runSync(new Runnable() {
+              public void run() {
+                frontier.setProcessed(curURL);
+                if (frontier.numOffspring(seedDocid) == 0)
+                  handleSeedEnd(seedDocid);
+              }
+            });
           }
           if (myController.isShuttingDown()) {
             logger.info("Exiting because of controller shutdown.");
