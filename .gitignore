@@ -4,5 +4,7 @@ target/
 .settings/*
 javadocs/*
 /bin/
+build/
+.gradle/
 .project
 .classpath
