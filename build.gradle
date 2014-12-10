@@ -1,0 +1,26 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.7'
+    compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.1.2'
+    compile group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.3.5'
+    compile group: 'com.sleepycat', name: 'je', version: '5.0.73'
+    compile group: 'org.apache.tika', name: 'tika-parsers', version: '1.5'
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            repository(url: "file:///opt/maven/")
+            pom.version = '3.7-ME'
+            pom.groupId = 'edu.uci.ics'
+            pom.artifactId = 'crawler4j'
+        }
+    }
+}
