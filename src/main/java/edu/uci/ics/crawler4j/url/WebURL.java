@@ -19,6 +19,8 @@ package edu.uci.ics.crawler4j.url;
 
 import java.io.Serializable;
 
+import org.slf4j.Logger;
+
 import com.sleepycat.persist.model.Entity;
 import com.sleepycat.persist.model.PrimaryKey;
 
@@ -101,6 +103,14 @@ public class WebURL implements Serializable {
     if (parts.length > 2) {
       domain = parts[parts.length - 2] + "." + parts[parts.length - 1];
       int limit = 2;
+      if (domain == "ac.jp")
+      {
+          boolean ab = TLDList.getInstance().contains(domain);
+          if (ab)
+              throw new RuntimeException("DAT IS NIET GOED" + domain);
+          else
+              throw new RuntimeException("DAT IS WEL GOED" + domain);
+      }
       if (TLDList.getInstance().contains(domain)) {
         domain = parts[parts.length - 3] + "." + domain;
         limit = 3;

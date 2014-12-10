@@ -1,5 +1,6 @@
 apply plugin: 'java'
 apply plugin: 'maven'
+apply plugin: 'eclipse'
 
 repositories {
     mavenCentral()
@@ -21,6 +22,43 @@ uploadArchives {
             pom.version = '3.7-ME'
             pom.groupId = 'edu.uci.ics'
             pom.artifactId = 'crawler4j'
+            pom.project {
+	            description 'Open Source Web Crawler for Java'
+	            url 'http://code.google.com/p/crawler4j/'
+                licenses {
+                    license {
+			            name 'The Apache Software License, Version 2.0'
+			            url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+			            distribution 'repo'
+                    }
+                }
+                scm {
+                    connection 'scm:git:https://crawler4j.googlecode.com/git/'
+                    developerConnection 'scm:git:https://crawler4j.googlecode.com/git/'
+                    url 'https://crawler4j.googlecode.com/git/'
+                }
+
+                developers {
+                    developer {
+                        name "Yasser Ganjisaffar"
+                        email "{lastname}@gmail.com"
+                    }
+                    developer {
+                        name 'Avi Hayun'
+                        email 'avraham2@gmail.com'
+                    }
+                    developer {
+                        name 'Egbert van der Wal'
+                        email 'ewal@pointpro.nl'
+                    }
+                }
+
+                parent {
+                    groupId 'org.sonatype.oss'
+                    artifactId 'oss-parent'
+                    version '7'
+                }
+            }
         }
     }
 }

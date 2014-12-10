@@ -1,11 +1,12 @@
 package edu.uci.ics.crawler4j.url;
 
-import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
-import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -20,7 +21,6 @@ import java.util.Set;
 public class TLDList {
 
   private final static String TLD_NAMES_ONLINE_URL = "https://publicsuffix.org/list/effective_tld_names.dat";
-  private final static String TLD_NAMES_ZIP_FILENAME = "tld-names.zip";
   private final static String TLD_NAMES_TXT_FILENAME = "tld-names.txt";
   private final static Logger logger = LoggerFactory.getLogger(TLDList.class);
 
@@ -43,40 +43,38 @@ public class TLDList {
       
       try (InputStream stream = url.openStream()) {
         logger.debug("Fetching the most updated TLD list online");
-        readStream(stream);
+        int n = readStream(stream);
+        logger.info("Obtained {} TLD from URL {}", n, TLD_NAMES_ONLINE_URL);
         return;
       } catch (Exception ex) {
         logger.error("Couldn't fetch the online list of TLDs from: {}", TLD_NAMES_ONLINE_URL);
       }
     }
-      
-    logger.info("Fetching the list from a local file {}", TLD_NAMES_ZIP_FILENAME);
-    String filename = this.getClass().getClassLoader().getResource(TLD_NAMES_ZIP_FILENAME).getFile();
-    ZipFile zipFile = null;
-    try {
-      zipFile = new ZipFile(filename);
-    } catch (IOException e) {
-      logger.error("Couldn't read the TLD list from file");
-      throw new RuntimeException(e);
-    }
-    
-    ZipArchiveEntry entry = zipFile.getEntry(TLD_NAMES_TXT_FILENAME);
-    try (InputStream stream = zipFile.getInputStream(entry)) {
-      readStream(stream);
-      return;
-    } catch (IOException e) {
-      logger.error("Couldn't read the TLD list from file");
-      throw new RuntimeException(e);
-    } finally {
-      try {
-        zipFile.close();
-      } catch (IOException e) {
-       // Nothing, at least we tried :-)
+   
+    File f = new File(TLD_NAMES_TXT_FILENAME);
+    if (f.exists()) {
+      logger.debug("Fetching the list from a local file {}", TLD_NAMES_TXT_FILENAME);
+      try (InputStream tldFile = new FileInputStream(f)) {
+        int n = readStream(tldFile);
+        logger.info("Obtained {} TLD from local file {}", n, TLD_NAMES_TXT_FILENAME);
+        return;
       }
+      catch (FileNotFoundException e)
+      {} // Should not happen as we just checked this
+      catch (IOException e) {
+        logger.error("Couldn't read the TLD list from local file");
+      }
+    }
+    try (InputStream tldFile = this.getClass().getClassLoader().getResourceAsStream(TLD_NAMES_TXT_FILENAME)) {
+      int n = readStream(tldFile);
+      logger.info("Obtained {} TLD from packaged file {}", n, TLD_NAMES_TXT_FILENAME);
+    } catch (IOException e) {
+      logger.error("Couldn't read the TLD list from file");
+      throw new RuntimeException(e);
     }
   }
  
-  private void readStream(InputStream stream)
+  private int readStream(InputStream stream)
   {
     try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream))) {
       String line;
@@ -92,6 +90,7 @@ public class TLDList {
     {
       logger.warn("Error while reading TLD-list: {}", e.getMessage());
     }
+    return tldSet.size();
   }
 
   public static TLDList getInstance() {
