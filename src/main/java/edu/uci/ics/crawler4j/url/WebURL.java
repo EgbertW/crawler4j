@@ -19,8 +19,6 @@ package edu.uci.ics.crawler4j.url;
 
 import java.io.Serializable;
 
-import org.slf4j.Logger;
-
 import com.sleepycat.persist.model.Entity;
 import com.sleepycat.persist.model.PrimaryKey;
 

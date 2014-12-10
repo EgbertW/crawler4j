@@ -3,3 +3,6 @@ target/
 *.iml
 .settings/*
 javadocs/*
+/bin/
+.project
+.classpath
