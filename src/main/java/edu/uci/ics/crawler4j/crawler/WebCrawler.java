@@ -105,6 +105,13 @@ public class WebCrawler implements Runnable {
    */
   private List<WebURL> assignedURLs = new ArrayList<>(50);
   
+  /** 
+   * A very thin wrapper around a boolean that allows a final object
+   * to be assigned a different value, for use in the handleSeedEnd.
+   */
+  private class BooleanWrapper {
+    boolean value = false;
+  }
   /**
    * Initializes the current instance of the crawler
    *
@@ -291,19 +298,26 @@ public class WebCrawler implements Runnable {
               processPage(fetchURL);
             curURL.setSeedDocid(seedDocid);
             
+            final BooleanWrapper seedEnded = new BooleanWrapper();;
             // Run synchronized within the frontier because
             // setProcessed may be executed twice by two different threads,
             // resulting in a decrease of the seed counter from 2 to 0,
             // after which both threads will execute the handleSeedEnd.
-            // To avoid this, setProcessed, numOffSpring and handleSeedEnd
-            // should all be run atomically.
+            // To avoid this, setProcessed and numOffSpring should be
+            // run atomically in order to decide whether the seed has ended.
+            // The processing of handleSeedEnd can be run afterwards,
+            // depending on the verdict.
             frontier.runSync(new Runnable() {
               public void run() {
                 frontier.setProcessed(curURL);
                 if (frontier.numOffspring(seedDocid) == 0)
-                  handleSeedEnd(seedDocid);
+                  seedEnded.value = true;
               }
             });
+            
+            // Now, we can run the handleSeedEnd if this is necessary
+            if (seedEnded.value)
+              handleSeedEnd(seedDocid);
           }
           if (myController.isShuttingDown()) {
             logger.info("Exiting because of controller shutdown.");
