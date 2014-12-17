@@ -26,11 +26,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.zip.GZIPInputStream;
 
 import javax.net.ssl.SSLContext;
@@ -77,26 +76,6 @@ import edu.uci.ics.crawler4j.url.WebURL;
  */
 public class PageFetcher extends Configurable {
     
-  private static class RecentHost implements Comparable<RecentHost> {
-    private String host;
-    private Long time;
-        
-    private RecentHost(String host, Long time) {
-        this.host = host;
-        this.time = time;
-    }
-    
-    @Override
-    public int compareTo(RecentHost o)
-    {
-      int res = time.compareTo(o.time);
-      if (res != 0)
-        return res;
-      return host.compareTo(o.host);
-    }      
-  }
-
-
   protected static final Logger logger = LoggerFactory.getLogger(PageFetcher.class);
 
   protected PoolingHttpClientConnectionManager connectionManager;
@@ -105,9 +84,7 @@ public class PageFetcher extends Configurable {
 
   protected final Object mutex = new Object();
 
-  protected Map<String, Long> lastFetchTimes;
-  
-  protected TreeSet<RecentHost> recentHosts;
+  protected Map<String, Long> nextFetchTimes;
   
   protected Long fetchErrorCounter = 0l;
 
@@ -183,8 +160,7 @@ public class PageFetcher extends Configurable {
       }
     });
 
-    lastFetchTimes = new HashMap<String, Long>();
-    recentHosts = new TreeSet<RecentHost>();
+    nextFetchTimes = new HashMap<String, Long>();
     
     httpClient = clientBuilder.build();
 
@@ -195,112 +171,91 @@ public class PageFetcher extends Configurable {
   }
   
   public WebURL getBestURL(Collection<WebURL> urls) {
-      long now = System.currentTimeMillis();
-      long std_delay = config.getPolitenessDelay();
-      long min_delay = std_delay;
-      WebURL min_url = null;
-      synchronized (lastFetchTimes) {
-          for (WebURL webUrl : urls)
-          {
-            try
-            {
-                URI url = new URI(webUrl.getURL());
-                String host = url.getHost();
-                Long ft = lastFetchTimes.get(host);
-                long delay = 0;
-                if (ft != null)
-                    delay = std_delay - (now - ft);
-                if (delay <= 0)
-                    return webUrl;
-                
-                if (delay < min_delay)
-                {
-                    min_delay = delay;
-                    min_url = webUrl;
-                }
-            }
-            catch (URISyntaxException e)
-            {
-                // Invalid URL, will not succeed, might as well get over with it
-                return webUrl;
-            }
+    // Return null if there's nothing to choose from
+    if (urls.size() == 0)
+      return null;
+      
+    long now = System.currentTimeMillis();
+    Long min_delay = null;
+    WebURL min_url = null;
+    synchronized (nextFetchTimes) {
+      for (WebURL webUrl : urls) {
+        try {
+          URI url = new URI(webUrl.getURL());
+          String host = url.getHost();
+          Long target_time = nextFetchTimes.get(host);
+          if (target_time == null)
+            return webUrl;
+          
+          long delay = target_time - now;
+          // A negative time or 0 time is instant crawl
+          if (delay <= 0)
+              return webUrl;
+          
+          if (min_delay == null || delay < min_delay) {
+            min_delay = delay;
+            min_url = webUrl;
           }
+        }
+        catch (URISyntaxException e) {
+          // Invalid URL, will not succeed, might as well get over with it
+          return webUrl;
+        }
       }
-      
-      if (min_url != null)
-          return min_url;
-      
-      // All items must have a delay, or the queue is empty
-      if (urls.size() == 0)
-          return null;
-      
-      // Just return the first one
-      return urls.iterator().next();
+    }
+    
+    // There should be a 'best' URL always at this point
+    assert(min_url != null);
+    
+    // Return the best if one was found
+    return min_url;
   }
   
   protected void enforcePolitenessDelay(WebURL webUrl) {
    long std_delay = config.getPolitenessDelay();
-   long delay = std_delay;
+   long delay = 0;
    long now = System.currentTimeMillis();
    
-   // Remove pages visited more than the politeness delay ago
-   synchronized (lastFetchTimes) {
-     RecentHost boundary = new RecentHost("", now - std_delay);
-     Set<RecentHost> rel_to_remove = recentHosts.headSet(boundary);
-     if (!rel_to_remove.isEmpty())
+   synchronized (nextFetchTimes) {
+     // Remove pages visited more than the politeness delay ago
+     ArrayList<String> hosts_to_remove = new ArrayList<String>();
+     for (Map.Entry<String, Long> entry : nextFetchTimes.entrySet())
      {
-       Set<RecentHost> to_remove = new TreeSet<RecentHost>(rel_to_remove);
-       for (RecentHost host : to_remove)
-       {
-         if (host == null)
-         {
-           logger.error("Host is null in cleaning up page fetch recent host list");
-           continue;
-         }
-         lastFetchTimes.remove(host);
-         recentHosts.remove(host);
-       }
+       if (entry.getValue() < now)
+         hosts_to_remove.add(entry.getKey());
      }
-   }
+       
+     for (String host : hosts_to_remove)
+       nextFetchTimes.remove(host);
    
-   // Update now timestamp and calculate delay
-   now = System.currentTimeMillis();
-   try {
-     URI url = new URI(webUrl.getURL());
-     String host = url.getHost();
-     if (host == null)
-     {
-       logger.error("No host name in URL: {}", url.toString());
-       throw new URISyntaxException(webUrl.getURL(), "No host name in URL");
-     }
-     
-     synchronized (lastFetchTimes) {
-       Long lastFetchTime = lastFetchTimes.get(host);
-       RecentHost currentEntry = null;
-       if (lastFetchTime != null)
-       {
-         // Calculate delay and store new fetch time
-         delay = Math.max(0, std_delay - (now - lastFetchTime));
-         currentEntry = new RecentHost(host, lastFetchTime);
-         recentHosts.remove(currentEntry);
-         currentEntry.time = now + delay;
-       }
-       else
-       {
-         currentEntry = new RecentHost(host, now);
-       }
-       recentHosts.add(currentEntry);
-       lastFetchTimes.put(host, currentEntry.time);
-     }
-   }
-   catch (URISyntaxException e)
-   {
-       delay = 0;
-   }
-   
-   if (delay > 0) {
+     long target_time = now;
+     String host = null;
      try {
-       Thread.sleep(delay);
+       URI currentUrl = new URI(webUrl.getURL());
+       host = currentUrl.getHost();
+       
+       if (nextFetchTimes.containsKey(host))
+         target_time = nextFetchTimes.get(host);
+     }
+     catch (URISyntaxException e)
+     {}
+       
+     // Update now to incorporate time spent in the above processing
+     now = System.currentTimeMillis();
+     delay = Math.max(target_time - now, 0);
+       
+     // Update next fetch time
+     if (host != null)
+       nextFetchTimes.put(host, target_time + std_delay);
+   }
+   
+   // Perform sleep unsynchronized
+   if (delay > 0) {
+     if (delay > std_delay)
+       logger.info("Sleep time for host {} is more than default: {}ms", delay);
+       
+     try {
+         Thread.sleep(delay);
      }
      catch (InterruptedException e)
      {}
