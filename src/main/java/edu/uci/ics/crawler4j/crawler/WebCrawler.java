@@ -275,7 +275,7 @@ public class WebCrawler implements Runnable {
       if (assignedURLs.isEmpty())
       {
         isWaitingForNewURLs = true;
-        frontier.getNextURLs(50, assignedURLs);
+        frontier.getNextURLs(5, assignedURLs);
         isWaitingForNewURLs = false;
       }
       if (assignedURLs.isEmpty()) {
