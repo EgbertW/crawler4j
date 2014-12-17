@@ -33,7 +33,13 @@ import java.util.List;
  */
 
 public class Frontier extends Configurable {
-
+  /** Identifier for the InProgress queue: pages in progress by a thread */
+  public static final int IN_PROGRESS_QUEUE = 1;
+  /** Identifier for the WorkQueue: pages not yet claimed by any thread */
+  public static final int WORK_QUEUE = 2;
+  /** convenience identifier for both queues: IN_PROGRESS_QUEUE | WORK_QUEUE */
+  public static final int BOTH_QUEUES = IN_PROGRESS_QUEUE | WORK_QUEUE;
+  
   protected static final Logger logger = LoggerFactory.getLogger(Frontier.class);
 
   protected WorkQueues workQueues;
@@ -191,10 +197,19 @@ public class Frontier extends Configurable {
       }
     }
   }
-
+  
   public long getQueueLength() {
+    return getQueueLength(WORK_QUEUE & IN_PROGRESS_QUEUE);
+  }
+
+  public long getQueueLength(int type) {
     synchronized (mutex) {
-      return workQueues.getLength() + inProcessPages.getLength();
+      int length = 0;
+      if ((type & WORK_QUEUE) == IN_PROGRESS_QUEUE)
+          length += workQueues.getLength();
+      if ((type & IN_PROGRESS_QUEUE) == IN_PROGRESS_QUEUE)
+          length += inProcessPages.getLength();
+      return length;
     }
   }
   
