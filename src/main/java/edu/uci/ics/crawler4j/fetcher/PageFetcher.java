@@ -215,6 +215,7 @@ public class PageFetcher extends Configurable {
    long std_delay = config.getPolitenessDelay();
    long delay = 0;
    long now = System.currentTimeMillis();
+   String hostname = webUrl.getURL();
    
    synchronized (nextFetchTimes) {
      // Remove pages visited more than the politeness delay ago
@@ -229,35 +230,32 @@ public class PageFetcher extends Configurable {
        nextFetchTimes.remove(host);
    
      long target_time = now;
-     String host = null;
      try {
        URI currentUrl = new URI(webUrl.getURL());
-       host = currentUrl.getHost();
-       
-       if (nextFetchTimes.containsKey(host))
-         target_time = nextFetchTimes.get(host);
+       hostname = currentUrl.getHost();
      }
      catch (URISyntaxException e)
      {}
+       
+     if (nextFetchTimes.containsKey(hostname))
+       target_time = nextFetchTimes.get(hostname);
        
      // Update now to incorporate time spent in the above processing
      now = System.currentTimeMillis();
      delay = Math.max(target_time - now, 0);
        
      // Update next fetch time
-     if (host != null)
-       nextFetchTimes.put(host, target_time + std_delay);
+     nextFetchTimes.put(hostname, target_time + std_delay);
    }
    
    // Perform sleep unsynchronized
    if (delay > 0) {
      if (delay > std_delay)
-       logger.info("Sleep time for host {} is more than default: {}ms", delay);
+       logger.info("Sleep time for host {} is more than default: {}ms", hostname, delay);
        
      try {
          Thread.sleep(delay);
-     }
-     catch (InterruptedException e)
+     } catch (InterruptedException e)
      {}
    }
   }
