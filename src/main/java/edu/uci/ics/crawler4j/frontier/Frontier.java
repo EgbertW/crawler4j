@@ -205,7 +205,7 @@ public class Frontier extends Configurable {
   public long getQueueLength(int type) {
     synchronized (mutex) {
       int length = 0;
-      if ((type & WORK_QUEUE) == IN_PROGRESS_QUEUE)
+      if ((type & WORK_QUEUE) == WORK_QUEUE)
           length += workQueues.getLength();
       if ((type & IN_PROGRESS_QUEUE) == IN_PROGRESS_QUEUE)
           length += inProcessPages.getLength();
