@@ -70,12 +70,11 @@ public class Frontier extends Configurable {
         logger.info("Rescheduling {} URLs from previous crawl.", numPreviouslyInProcessPages);
         scheduledPages -= numPreviouslyInProcessPages;
         while (true) {
-          List<WebURL> urls = inProcessPages.get(100);
+          List<WebURL> urls = inProcessPages.shift(100);
           if (urls.size() == 0) {
             break;
           }
           scheduleAll(urls);
-          inProcessPages.delete(urls.size());
         }
       }
     } catch (DatabaseException e) {
@@ -166,8 +165,7 @@ public class Frontier extends Configurable {
           return;
         }
         try {
-          List<WebURL> curResults = workQueues.get(max);
-          workQueues.delete(curResults.size());
+          List<WebURL> curResults = workQueues.shift(max);
           for (WebURL curPage : curResults) {
             inProcessPages.put(curPage);
           }

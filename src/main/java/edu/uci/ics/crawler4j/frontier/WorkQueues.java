@@ -75,8 +75,15 @@ public class WorkQueues {
       tnx.commit();
     }
   }
-
-  public List<WebURL> get(int max) throws DatabaseException {
+  
+  /**
+   * Select *AND* remove the first set of items from the work queue
+   * 
+   * @param max The maximum number of items to return
+   * @return The list of items, limited by max
+   * @throws DatabaseException
+   */
+  public List<WebURL> shift(int max) throws DatabaseException {
     synchronized (mutex) {
       int matches = 0;
       List<WebURL> results = new ArrayList<>(max);
@@ -97,9 +104,12 @@ public class WorkQueues {
 
         while (matches < max && result == OperationStatus.SUCCESS) {
           if (value.getData().length > 0) {
-            results.add(webURLBinding.entryToObject(value));
+            WebURL url = webURLBinding.entryToObject(value);
+            seedDecrease(url.getSeedDocid());
+            results.add(url);
             matches++;
           }
+          cursor.delete();
           result = cursor.getNext(key, value, null);
         }
       } catch (DatabaseException e) {
@@ -116,7 +126,7 @@ public class WorkQueues {
           txn.commit();
         }
       }
-      
+        
       return results;
     }
   }
@@ -127,7 +137,7 @@ public class WorkQueues {
       }
   }
   
-  public void setSeedCount(Integer docid, Integer value) {
+  private void setSeedCount(Integer docid, Integer value) {
       DatabaseEntry key = new DatabaseEntry(Util.int2ByteArray(docid));
       if (value <= 0)
       {
@@ -170,50 +180,6 @@ public class WorkQueues {
   public void seedDecrease(Integer docid, Integer amount) {
       seedIncrease(docid, -amount);
   }
-   
-  public void delete(int count) throws DatabaseException {
-    synchronized (mutex) {
-      int matches = 0;
-
-      Cursor cursor = null;
-      OperationStatus result;
-      DatabaseEntry key = new DatabaseEntry();
-      DatabaseEntry value = new DatabaseEntry();
-      Transaction txn;
-      if (resumable) {
-        txn = env.beginTransaction(null, null);
-      } else {
-        txn = null;
-      }
-      try {
-        cursor = urlsDB.openCursor(txn, null);
-        result = cursor.getFirst(key, value, null);
-
-        while (matches < count && result == OperationStatus.SUCCESS) {
-          if (value.getData().length > 0) {
-            WebURL url = webURLBinding.entryToObject(value);
-            seedDecrease(url.getSeedDocid());
-          }
-          cursor.delete();
-          matches++;
-          result = cursor.getNext(key, value, null);
-        }
-      } catch (DatabaseException e) {
-        if (txn != null) {
-          txn.abort();
-          txn = null;
-        }
-        throw e;
-      } finally {
-        if (cursor != null) {
-          cursor.close();
-        }
-        if (txn != null) {
-          txn.commit();
-        }
-      }
-    }
-  }
 
   /*
    * The key that is used for storing URLs determines the order
@@ -242,19 +208,21 @@ public class WorkQueues {
   }
 
   public void put(WebURL url) throws DatabaseException {
-    seedIncrease(url.getSeedDocid());
-    DatabaseEntry value = new DatabaseEntry();
-    webURLBinding.objectToEntry(url, value);
-    Transaction txn;
-    if (resumable) {
-      txn = env.beginTransaction(null, null);
-    } else {
-      txn = null;
-    }
-    urlsDB.put(txn, getDatabaseEntryKey(url), value);
-    if (resumable) {
-      if (txn != null) {
-        txn.commit();
+    synchronized (mutex) {
+      seedIncrease(url.getSeedDocid());
+      DatabaseEntry value = new DatabaseEntry();
+      webURLBinding.objectToEntry(url, value);
+      Transaction txn;
+      if (resumable) {
+        txn = env.beginTransaction(null, null);
+      } else {
+        txn = null;
+      }
+      urlsDB.put(txn, getDatabaseEntryKey(url), value);
+      if (resumable) {
+        if (txn != null) {
+          txn.commit();
+        }
       }
     }
   }
