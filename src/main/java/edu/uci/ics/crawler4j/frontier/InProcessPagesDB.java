@@ -79,6 +79,8 @@ public class InProcessPagesDB extends WorkQueues {
             txn.abort();
             txn = null;
           }
+          logger.error("DatabaseException: {}", e.getMessage());
+          logger.error("Stacktrace: ", e);
           throw e;
         } finally {
           if (cursor != null) {
@@ -90,7 +92,7 @@ public class InProcessPagesDB extends WorkQueues {
           if (removed && webUrl.getSeedDocid() >= 0)
               seedDecrease(webUrl.getSeedDocid());
           else
-              logger.error("URL {} was not present in list of processed pages", webUrl.getURL());
+              logger.error("URL {} was not present in list of processed pages.", webUrl.getURL());
         }
       } catch (Exception e) {
         e.printStackTrace();
