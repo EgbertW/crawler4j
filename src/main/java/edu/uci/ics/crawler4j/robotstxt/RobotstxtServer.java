@@ -129,8 +129,9 @@ public class RobotstxtServer {
         String minHost = null;
         long minAccessTime = Long.MAX_VALUE;
         for (Entry<String, HostDirectives []> entry : host2directivesCache.entrySet()) {
-            if (entry.getValue()[0].getLastAccessTime() < minAccessTime) {
-            minAccessTime = entry.getValue()[0].getLastAccessTime();
+          long entryAccessTime = Math.max(entry.getValue()[0].getLastAccessTime(), entry.getValue()[1].getLastAccessTime());
+          if (entryAccessTime < minAccessTime) {
+            minAccessTime = entryAccessTime;
             minHost = entry.getKey();
           }
         }
