@@ -189,12 +189,20 @@ public class Frontier extends Configurable {
     }
   }
 
-  public void setProcessed(WebURL webURL) {
+  /**
+   * Set the page as processed and return true if, as a consequence, there is no
+   * more offspring left of the seed that eventually resulted in this document.
+   * 
+   * @param webURL The URL to set as processed
+   * @return True when this was the last offspring of the seed, false otherwise
+   */
+  public boolean setProcessed(WebURL webURL) {
     counters.increment(ReservedCounterNames.PROCESSED_PAGES);
     synchronized (mutex) {
       if (!inProcessPages.removeURL(webURL)) {
         logger.warn("Could not remove: {} from list of processed pages.", webURL.getURL());
       }
+      return numOffspring(webURL.getSeedDocid()) == 0;
     }
   }
   
