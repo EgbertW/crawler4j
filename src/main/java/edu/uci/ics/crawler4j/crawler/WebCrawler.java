@@ -283,20 +283,29 @@ public class WebCrawler implements Runnable {
       } else {
         while (!assignedURLs.isEmpty()) {
           final WebURL curURL = pageFetcher.getBestURL(assignedURLs);
-          assignedURLs.remove(curURL);
-          if (curURL != null) {
-            final int seedDocid = curURL.getSeedDocid();
+          if (null == curURL)
+            throw new RuntimeException("Unable to obtain the a proper URL from a non-empty list");
+          
+          // We should be extremely cautious with external elements messing
+          // with the URL as we need to remove it from the queue after processing.
+          // Therefore, a full copy is made before passing it along.
+          WebURL backup = new WebURL(curURL);
+          
+          try {
+            assignedURLs.remove(curURL);
             WebURL fetchURL = handleUrlBeforeProcess(curURL);
             if (fetchURL != null)
               processPage(fetchURL);
-            curURL.setSeedDocid(seedDocid);
-            
-            boolean seedEnded = frontier.setProcessed(curURL);
+          } finally {
+            // Handle the finishing of the URL in the finally clause
+            // to make sure it is ALWAYS executed, no matter what.
+            boolean seedEnded = frontier.setProcessed(backup);
             
             // Now, we can run the handleSeedEnd if this is necessary
             if (seedEnded)
-              handleSeedEnd(seedDocid);
+              handleSeedEnd(backup.getSeedDocid());
           }
+          
           if (myController.isShuttingDown()) {
             logger.info("Exiting because of controller shutdown.");
             return;

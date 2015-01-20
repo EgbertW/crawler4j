@@ -46,8 +46,27 @@ public class WebURL implements Serializable {
   private byte priority;
   private String tag;
 
+  /** Copy constructor */
+  public WebURL(WebURL rhs)
+  {
+    this.url = rhs.url;
+    this.docid = rhs.docid;
+    this.parentDocid = rhs.parentDocid;
+    this.seedDocid = rhs.seedDocid;
+    this.parentUrl = rhs.parentUrl;
+    this.depth = rhs.depth;
+    this.domain = rhs.domain;
+    this.subDomain = rhs.subDomain;
+    this.path = rhs.path;
+    this.anchor = rhs.anchor;
+    this.priority = rhs.priority;
+    this.tag = rhs.tag;
+  }
 
-  /**
+  public WebURL()
+  {}
+
+/**
    * Returns the unique document id assigned to this Url.
    */
   public int getDocid() {
