@@ -38,7 +38,7 @@ public class DocIDServer extends Configurable {
   protected final Object mutex = new Object();
 
   protected int lastDocID;
-
+  
   public DocIDServer(Environment env, CrawlConfig config) throws DatabaseException {
     super(config);
     DatabaseConfig dbConfig = new DatabaseConfig();
@@ -84,22 +84,17 @@ public class DocIDServer extends Configurable {
     }
   }
 
-  public int getNewDocID(String url) {
+  public int getNewDocID(String url) throws URLSeenBefore {
     synchronized (mutex) {
-      try {
-        // Make sure that we have not already assigned a docid for this URL
-        int docid = getDocId(url);
-        if (docid > 0) {
-          return docid;
-        }
-
-        lastDocID++;
-        docIDsDB.put(null, new DatabaseEntry(url.getBytes()), new DatabaseEntry(Util.int2ByteArray(lastDocID)));
-        return lastDocID;
-      } catch (Exception e) {
-        e.printStackTrace();
+      // Make sure that we have not already assigned a docid for this URL
+      int docid = getDocId(url);
+      if (docid > 0) {
+        throw new URLSeenBefore(docid);
       }
-      return -1;
+
+      lastDocID++;
+      docIDsDB.put(null, new DatabaseEntry(url.getBytes()), new DatabaseEntry(Util.int2ByteArray(lastDocID)));
+      return lastDocID;
     }
   }
 

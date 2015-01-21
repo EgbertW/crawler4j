@@ -23,6 +23,7 @@ import com.sleepycat.je.EnvironmentConfig;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.frontier.DocIDServer;
 import edu.uci.ics.crawler4j.frontier.Frontier;
+import edu.uci.ics.crawler4j.frontier.URLSeenBefore;
 import edu.uci.ics.crawler4j.robotstxt.RobotstxtServer;
 import edu.uci.ics.crawler4j.url.TLDList;
 import edu.uci.ics.crawler4j.url.URLCanonicalizer;
@@ -327,12 +328,12 @@ public class CrawlController extends Configurable {
         return -1;
       }
       if (docId < 0) {
-        docId = docIdServer.getDocId(canonicalUrl);
-        if (docId > 0) {
-          // This URL is already seen.
+        try {
+          docId = docIdServer.getNewDocID(canonicalUrl);
+        } catch (URLSeenBefore e) {
+            // This URL is already seen.
           return -1;
         }
-        docId = docIdServer.getNewDocID(canonicalUrl);
       } else {
         try {
           docIdServer.addUrlAndDocId(canonicalUrl, docId);

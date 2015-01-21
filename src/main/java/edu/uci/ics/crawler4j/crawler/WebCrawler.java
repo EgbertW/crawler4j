@@ -22,6 +22,7 @@ import edu.uci.ics.crawler4j.fetcher.CustomFetchStatus;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.frontier.DocIDServer;
 import edu.uci.ics.crawler4j.frontier.Frontier;
+import edu.uci.ics.crawler4j.frontier.URLSeenBefore;
 import edu.uci.ics.crawler4j.parser.NotAllowedContentException;
 import edu.uci.ics.crawler4j.parser.ParseData;
 import edu.uci.ics.crawler4j.parser.Parser;
@@ -357,6 +358,16 @@ public class WebCrawler implements Runnable {
       // Do nothing by default
       // Sub-classes can override this to add their custom functionality
   }
+  
+  private boolean assignUrl(WebURL url) {
+    try {
+      url.setDocid(docIdServer.getNewDocID(url.getURL()));
+      return true;
+    } catch (URLSeenBefore e) {
+      url.setDocid(e.getDocid());
+      return false;
+    }
+  }
 
   private void processPage(WebURL curURL) {
     if (curURL == null) {
@@ -385,22 +396,16 @@ public class WebCrawler implements Runnable {
             }
             page.setRedirectedToUrl(movedToUrl);
 
-            int newDocId = docIdServer.getDocId(movedToUrl);
-            if (newDocId > 0) {
-              logger.debug("Redirect page: {} is already seen", curURL);
-              return;
-            }
-
             WebURL webURL = new WebURL();
             webURL.setURL(movedToUrl);
             webURL.setParentDocid(curURL.getParentDocid());
             webURL.setParentUrl(curURL.getParentUrl());
             webURL.setSeedDocid(curURL.getSeedDocid());
             webURL.setDepth(curURL.getDepth());
-            webURL.setDocid(-1);
             webURL.setAnchor(curURL.getAnchor());
+            assignUrl(webURL);
+            
             if (shouldVisit(page, webURL) && robotstxtServer.allows(webURL)) {
-              webURL.setDocid(docIdServer.getNewDocID(movedToUrl));
               frontier.schedule(webURL);
             } else {
               logger.debug("Not visiting: {} as per your \"shouldVisit\" policy", webURL.getURL());
@@ -417,12 +422,11 @@ public class WebCrawler implements Runnable {
       }
 
       if (!curURL.getURL().equals(fetchResult.getFetchedUrl())) {
-        if (docIdServer.isSeenBefore(fetchResult.getFetchedUrl())) {
+        curURL.setURL(fetchResult.getFetchedUrl());
+        if (!assignUrl(curURL)) {
           logger.debug("Redirect page: {} has already been seen", curURL);
           return;
         }
-        curURL.setURL(fetchResult.getFetchedUrl());
-        curURL.setDocid(docIdServer.getNewDocID(fetchResult.getFetchedUrl()));
       }
 
       if (!fetchResult.fetchContent(page, myController.getConfig().getMaxDownloadSize())) {
@@ -447,20 +451,12 @@ public class WebCrawler implements Runnable {
         webURL.setParentDocid(curURL.getDocid());
         webURL.setParentUrl(curURL.getURL());
         webURL.setSeedDocid(curURL.getSeedDocid());
-        int newdocid = docIdServer.getDocId(webURL.getURL());
-        if (newdocid > 0) {
-          // This is not the first time that this Url is
-          // visited. So, we set the depth to a negative number.
-          webURL.setDepth((short) -1);
-          webURL.setDocid(newdocid);
-        } else {
-          webURL.setDocid(-1);
-          webURL.setDepth((short) (curURL.getDepth() + 1));
-          if (maxCrawlDepth == -1 || curURL.getDepth() < maxCrawlDepth) {
-            if (shouldVisit(page, webURL) && robotstxtServer.allows(webURL)) {
-                webURL.setDocid(docIdServer.getNewDocID(webURL.getURL()));
-                toSchedule.add(webURL);
-            }
+        if (!assignUrl(webURL))
+            continue;
+        webURL.setDepth((short) (curURL.getDepth() + 1));
+        if (maxCrawlDepth == -1 || curURL.getDepth() < maxCrawlDepth) {
+          if (shouldVisit(page, webURL) && robotstxtServer.allows(webURL)) {
+            toSchedule.add(webURL);
           }
         }
       }
