@@ -167,9 +167,9 @@ public class Frontier extends Configurable {
         try {
           List<WebURL> curResults = workQueues.shift(max);
           for (WebURL curPage : curResults) {
-            inProcessPages.put(curPage);
+            if (inProcessPages.put(curPage))
+                result.add(curPage);
           }
-          result.addAll(curResults);
         } catch (DatabaseException e) {
           logger.error("Error while getting next urls: {}", e.getMessage());
           e.printStackTrace();

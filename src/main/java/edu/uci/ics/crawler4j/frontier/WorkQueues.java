@@ -208,8 +208,9 @@ public class WorkQueues {
     return new DatabaseEntry(keyData);
   }
 
-  public void put(WebURL url) throws DatabaseException {
+  public boolean put(WebURL url) throws DatabaseException {
     synchronized (mutex) {
+      boolean added = false;
       DatabaseEntry value = new DatabaseEntry();
       webURLBinding.objectToEntry(url, value);
       Transaction txn;
@@ -224,12 +225,14 @@ public class WorkQueues {
       if (urlsDB.get(txn, key, retrieve_value, null) == OperationStatus.NOTFOUND) {
         urlsDB.put(txn, key, value);
         seedIncrease(url.getSeedDocid());
+        added = true;
       }
       if (resumable) {
         if (txn != null) {
           txn.commit();
         }
       }
+      return added;
     }
   }
 
