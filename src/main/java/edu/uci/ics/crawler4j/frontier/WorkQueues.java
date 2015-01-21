@@ -103,13 +103,14 @@ public class WorkQueues {
         result = cursor.getFirst(key, value, null);
 
         while (matches < max && result == OperationStatus.SUCCESS) {
-          if (value.getData().length > 0) {
+          byte [] data = value.getData();
+          cursor.delete();
+          if (data.length > 0) {
             WebURL url = webURLBinding.entryToObject(value);
             seedDecrease(url.getSeedDocid());
             results.add(url);
             matches++;
           }
-          cursor.delete();
           result = cursor.getNext(key, value, null);
         }
       } catch (DatabaseException e) {
@@ -209,7 +210,6 @@ public class WorkQueues {
 
   public void put(WebURL url) throws DatabaseException {
     synchronized (mutex) {
-      seedIncrease(url.getSeedDocid());
       DatabaseEntry value = new DatabaseEntry();
       webURLBinding.objectToEntry(url, value);
       Transaction txn;
@@ -218,7 +218,13 @@ public class WorkQueues {
       } else {
         txn = null;
       }
-      urlsDB.put(txn, getDatabaseEntryKey(url), value);
+      // Check if the key already exists
+      DatabaseEntry key = getDatabaseEntryKey(url);
+      DatabaseEntry retrieve_value = new DatabaseEntry();
+      if (urlsDB.get(txn, key, retrieve_value, null) == OperationStatus.NOTFOUND) {
+        urlsDB.put(txn, key, value);
+        seedIncrease(url.getSeedDocid());
+      }
       if (resumable) {
         if (txn != null) {
           txn.commit();
