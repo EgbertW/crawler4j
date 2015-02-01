@@ -359,6 +359,15 @@ public class WebCrawler implements Runnable {
       // Sub-classes can override this to add their custom functionality
   }
   
+  /**
+   * Assign a DocID to the URL from the docIdServer. If this succeeds,
+   * true is returned and the WebURL is updated with the doc id.
+   * If this fails because the URL was visited before, this returns false
+   * and the WebURL is updated with the existing Doc ID.
+   * 
+   * @param url
+   * @return
+   */
   private boolean assignUrl(WebURL url) {
     try {
       url.setDocid(docIdServer.getNewDocID(url.getURL()));
@@ -403,12 +412,15 @@ public class WebCrawler implements Runnable {
             webURL.setSeedDocid(curURL.getSeedDocid());
             webURL.setDepth(curURL.getDepth());
             webURL.setAnchor(curURL.getAnchor());
-            assignUrl(webURL);
             
-            if (shouldVisit(page, webURL) && robotstxtServer.allows(webURL)) {
-              frontier.schedule(webURL);
+            if (assignUrl(webURL)) {
+              if (shouldVisit(page, webURL) && robotstxtServer.allows(webURL)) {
+                frontier.schedule(webURL);
+              } else {
+                logger.debug("Not visiting: {} as per your \"shouldVisit\" policy", webURL.getURL());
+              }
             } else {
-              logger.debug("Not visiting: {} as per your \"shouldVisit\" policy", webURL.getURL());
+              logger.info("Not visiting redirect-to page: {} as it has been visited already", webURL.getURL());
             }
           }
         } else if (fetchResult.getStatusCode() == CustomFetchStatus.PageTooBig) {
