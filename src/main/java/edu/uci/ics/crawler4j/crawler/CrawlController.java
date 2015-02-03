@@ -303,6 +303,22 @@ public class CrawlController extends Configurable {
   }
 
   /**
+   * Adds a new seed URL with a priority of 0. A seed URL is a URL that is fetched
+   * by the crawler to extract new URLs in it and follow them for crawling.
+   * 
+   * @seealso addSeed(String, int, byte)
+   * 
+   * @param pageUrl
+   *            the URL of the seed
+   * @param docId
+   *            the document id that you want to be assigned to this seed URL.
+   * @return The docId used / assigned for the seed URL
+   */
+  public int addSeed(String pageUrl, int docId) {
+    return addSeed(pageUrl, docId, (byte)0);
+  }
+    
+  /**
    * Adds a new seed URL. A seed URL is a URL that is fetched by the crawler
    * to extract new URLs in it and follow them for crawling. You can also
    * specify a specific document id to be assigned to this seed URL. This
@@ -319,41 +335,44 @@ public class CrawlController extends Configurable {
    *            the URL of the seed
    * @param docId
    *            the document id that you want to be assigned to this seed URL.
+   * @param priority
+   *            the priority to assign to this seed
    * @return The docId used / assigned for the seed URL
    */
-    public int addSeed(String pageUrl, int docId) {
-      String canonicalUrl = URLCanonicalizer.getCanonicalURL(pageUrl);
-      if (canonicalUrl == null) {
-        logger.error("Invalid seed URL: {}", pageUrl);
+  public int addSeed(String pageUrl, int docId, byte priority) {
+    String canonicalUrl = URLCanonicalizer.getCanonicalURL(pageUrl);
+    if (canonicalUrl == null) {
+      logger.error("Invalid seed URL: {}", pageUrl);
+      return -1;
+    }
+    if (docId < 0) {
+      try {
+        docId = docIdServer.getNewDocID(canonicalUrl);
+      } catch (URLSeenBefore e) {
+        // This URL is already seen.
         return -1;
       }
-      if (docId < 0) {
-        try {
-          docId = docIdServer.getNewDocID(canonicalUrl);
-        } catch (URLSeenBefore e) {
-            // This URL is already seen.
-          return -1;
-        }
-      } else {
-        try {
-          docIdServer.addUrlAndDocId(canonicalUrl, docId);
-        } catch (Exception e) {
-          logger.error("Could not add seed: {}", e.getMessage());
-        }
+    } else {
+      try {
+        docIdServer.addUrlAndDocId(canonicalUrl, docId);
+      } catch (Exception e) {
+        logger.error("Could not add seed: {}", e.getMessage());
       }
+    }
 
-      WebURL webUrl = new WebURL();
-      webUrl.setURL(canonicalUrl);
-      webUrl.setSeedDocid(docId);
-      webUrl.setDocid(docId);
-      webUrl.setDepth((short) 0);
-      if (!config.isIgnoreRobotsTxtForSeed() && !robotstxtServer.allows(webUrl)) {
-        logger.info("Robots.txt does not allow this seed: {}", pageUrl);
-        return -1;
-      }
-      
-      frontier.schedule(webUrl);
-      return docId;
+    WebURL webUrl = new WebURL();
+    webUrl.setURL(canonicalUrl);
+    webUrl.setSeedDocid(docId);
+    webUrl.setDocid(docId);
+    webUrl.setDepth((short) 0);
+    webUrl.setPriority(priority);
+    if (!config.isIgnoreRobotsTxtForSeed() && !robotstxtServer.allows(webUrl)) {
+      logger.info("Robots.txt does not allow this seed: {}", pageUrl);
+      return -1;
+    }
+    
+    frontier.schedule(webUrl);
+    return docId;
   }
 
   /**

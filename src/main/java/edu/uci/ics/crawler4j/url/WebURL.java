@@ -43,7 +43,7 @@ public class WebURL implements Serializable {
   private String subDomain;
   private String path;
   private String anchor;
-  private byte priority;
+  private byte priority = 0;
   private String tag;
 
   /** Copy constructor */
