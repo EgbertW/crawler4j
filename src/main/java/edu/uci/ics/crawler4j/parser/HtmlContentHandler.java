@@ -133,11 +133,11 @@ public class HtmlContentHandler extends DefaultHandler {
           int pos = content.toLowerCase().indexOf("url=");
           if (pos != -1) {
             metaRefresh = content.substring(pos + 4);
+            curUrl = new ExtractedUrlAnchorPair();
+            curUrl.setHref(metaRefresh);
+            curUrl.setTag(localName);
+            outgoingUrls.add(curUrl);
           }
-          curUrl = new ExtractedUrlAnchorPair();
-          curUrl.setHref(metaRefresh);
-          curUrl.setTag(localName);
-          outgoingUrls.add(curUrl);
         }
 
         // http-equiv="location" content="http://foo.bar/..."
