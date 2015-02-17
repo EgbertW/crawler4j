@@ -483,6 +483,7 @@ public class WebCrawler implements Runnable {
       logger.debug("Skipping: {} as it contains binary content which you configured not to crawl", curURL.getURL());
     } catch (Exception e) {
       logger.error("{}, while processing: {}", e.getMessage(), curURL.getURL());
+      logger.error("Stacktrace: ", e);
     } finally {
       if (fetchResult != null) {
         fetchResult.discardContentIfNotConsumed();
