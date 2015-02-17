@@ -98,6 +98,8 @@ public class RobotstxtParser {
         }
         path = path.trim();
         if (inExactUserAgent) {
+          specificDirectives.addAllow(path);
+        } else {
           directives.addAllow(path);
         }
       }
