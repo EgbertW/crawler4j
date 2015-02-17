@@ -76,7 +76,7 @@ public class RobotstxtServer {
       if (directives == null) {
         directives = fetchDirectives(url);
       }
-      return directives[1].allows(path) || directives[0].allows(path);
+      return directives[1].allows(path) || (directives[0].allows(path) && !directives[1].disallows(path));
     } catch (MalformedURLException e) {
       e.printStackTrace();
     }
@@ -104,7 +104,7 @@ public class RobotstxtServer {
               } else {
                 content = new String(page.getContentData(), page.getContentCharset());
               }
-              directives = RobotstxtParser.parse(content, config.getUserAgentName());
+              directives = RobotstxtParser.parse(content, config);
             } else {
               logger.info("No data received for robots.txt retrieved from URL: {}", robotsTxtUrl.getURL());
             }

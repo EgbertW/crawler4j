@@ -34,8 +34,9 @@ public class RobotstxtParser {
   private static final int PATTERNS_DISALLOW_LENGTH = 9;
   private static final int PATTERNS_ALLOW_LENGTH = 6;
 
-  public static HostDirectives [] parse(String content, String myUserAgent) {
+  public static HostDirectives [] parse(String content, RobotstxtConfig config) {
 
+    String myUserAgent = config.getUserAgentName();
     HostDirectives directives = new HostDirectives();
     HostDirectives specificDirectives = new HostDirectives();
     boolean inMatchingUserAgent = false;
@@ -84,7 +85,11 @@ public class RobotstxtParser {
           }
         }
       } else if (line.matches(PATTERNS_ALLOW)) {
-        if (!inMatchingUserAgent) {
+        // Check if the user agent matches or if it was
+        // specified that white-listing is ignored and
+        // "allows" rules are applied regardless of the User-agent
+        // string.
+        if (!inMatchingUserAgent && !config.getIgnoreUserAgentInAllow()) {
           continue;
         }
         String path = line.substring(PATTERNS_ALLOW_LENGTH).trim();
@@ -92,8 +97,7 @@ public class RobotstxtParser {
           path = path.substring(0, path.length() - 1);
         }
         path = path.trim();
-        if (inExactUserAgent)
-        {
+        if (inExactUserAgent) {
           directives.addAllow(path);
         }
       }
