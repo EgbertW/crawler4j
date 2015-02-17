@@ -144,7 +144,7 @@ public class HtmlContentHandler extends DefaultHandler {
         if (equiv.equals("location") && (metaLocation == null)) {
           metaLocation = content;
           curUrl = new ExtractedUrlAnchorPair();
-          curUrl.setHref(metaRefresh);
+          curUrl.setHref(metaLocation);
           curUrl.setTag(localName);
           outgoingUrls.add(curUrl);
         }
