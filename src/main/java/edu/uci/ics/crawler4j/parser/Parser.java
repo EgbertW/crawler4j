@@ -131,6 +131,7 @@ public class Parser extends Configurable {
     for (ExtractedUrlAnchorPair urlAnchorPair : contentHandler.getOutgoingUrls()) {
       if (urlAnchorPair.getHref() == null) {
         logger.error("URL {} contains invalid link in tag {}, anchor: {}", baseURL, urlAnchorPair.getTag(), urlAnchorPair.getAnchor());
+        logger.error("Traceback to here: ", new Throwable());
         continue;
       }
       
