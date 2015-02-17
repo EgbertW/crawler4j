@@ -129,6 +129,11 @@ public class Parser extends Configurable {
 
     int urlCount = 0;
     for (ExtractedUrlAnchorPair urlAnchorPair : contentHandler.getOutgoingUrls()) {
+      if (urlAnchorPair.getHref() == null) {
+        logger.error("URL {} contains invalid link in tag {}, anchor: {}", baseURL, urlAnchorPair.getTag(), urlAnchorPair.getAnchor());
+        continue;
+      }
+      
       String href = urlAnchorPair.getHref().trim();
       if (href.length() == 0) {
         continue;
