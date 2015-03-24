@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 import org.apache.http.Header;
 
 /**
- * @author Yasser Ganjisaffar <lastname at gmail dot com>
+ * @author Yasser Ganjisaffar
  */
 public class BasicCrawler extends WebCrawler {
 

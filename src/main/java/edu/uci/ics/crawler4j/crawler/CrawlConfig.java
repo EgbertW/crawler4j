@@ -156,7 +156,7 @@ public class CrawlConfig {
   /**
    * Validates the configs specified by this instance.
    *
-   * @throws Exception
+   * @throws Exception Whenever the configuration is not correct.
    */
   public void validate() throws Exception {
     if (crawlStorageFolder == null) {
@@ -180,6 +180,8 @@ public class CrawlConfig {
   /**
    * The folder which will be used by crawler for storing the intermediate
    * crawl data. The content of this folder should not be modified manually.
+   * 
+   * @param crawlStorageFolder The storage folder where to store crawl data
    */
   public void setCrawlStorageFolder(String crawlStorageFolder) {
     this.crawlStorageFolder = crawlStorageFolder;
@@ -192,6 +194,8 @@ public class CrawlConfig {
   /**
    * If this feature is enabled, you would be able to resume a previously
    * stopped/crashed crawl. However, it makes crawling slightly slower
+   * 
+   * @param resumableCrawling True to enable resumable crawling, false to disable
    */
   public void setResumableCrawling(boolean resumableCrawling) {
     this.resumableCrawling = resumableCrawling;
@@ -204,6 +208,8 @@ public class CrawlConfig {
   /**
    * Maximum depth of crawling For unlimited depth this parameter should be
    * set to -1
+   * 
+   * @param maxDepthOfCrawling The maximum depth of crawling.
    */
   public void setMaxDepthOfCrawling(int maxDepthOfCrawling) {
     this.maxDepthOfCrawling = maxDepthOfCrawling;
@@ -216,6 +222,8 @@ public class CrawlConfig {
   /**
    * Maximum number of pages to fetch For unlimited number of pages, this
    * parameter should be set to -1
+   * 
+   * @param maxPagesToFetch The maximum number of pages to fetch.
    */
   public void setMaxPagesToFetch(int maxPagesToFetch) {
     this.maxPagesToFetch = maxPagesToFetch;
@@ -228,6 +236,8 @@ public class CrawlConfig {
   /**
    * user-agent string that is used for representing your crawler to web
    * servers. See http://en.wikipedia.org/wiki/User_agent for more details
+   * 
+   * @param userAgentString The user-agent used during crawling
    */
   public void setUserAgentString(String userAgentString) {
     this.userAgentString = userAgentString;
@@ -254,6 +264,8 @@ public class CrawlConfig {
 
   /**
    * Should we also crawl https pages?
+   * 
+   * @param includeHttpsPages True to crawl https pages, false to ignore them.
    */
   public void setIncludeHttpsPages(boolean includeHttpsPages) {
     this.includeHttpsPages = includeHttpsPages;
@@ -265,6 +277,8 @@ public class CrawlConfig {
 
   /**
    * Should we fetch binary content such as images, audio, ...?
+   * 
+   * @param includeBinaryContentInCrawling True to crawl binary content, false to ignore it.
    */
   public void setIncludeBinaryContentInCrawling(boolean includeBinaryContentInCrawling) {
     this.includeBinaryContentInCrawling = includeBinaryContentInCrawling;
@@ -276,6 +290,9 @@ public class CrawlConfig {
 
   /**
    * Should we process binary content such as images, audio, ... using TIKA?
+   * 
+   * @param processBinaryContentInCrawling True to process binary content using TIKA in order
+   * 									   to extract more links, false to pass it on as-is
    */
   public void setProcessBinaryContentInCrawling(boolean processBinaryContentInCrawling) {
     this.processBinaryContentInCrawling = processBinaryContentInCrawling;
@@ -287,6 +304,8 @@ public class CrawlConfig {
 
   /**
    * Maximum Connections per host
+   * 
+   * @param maxConnectionsPerHost The maximum number of simultaneous connections per host
    */
   public void setMaxConnectionsPerHost(int maxConnectionsPerHost) {
     this.maxConnectionsPerHost = maxConnectionsPerHost;
@@ -298,6 +317,8 @@ public class CrawlConfig {
 
   /**
    * Maximum total connections
+   * 
+   * @param maxTotalConnections The maxmimum number of total connections
    */
   public void setMaxTotalConnections(int maxTotalConnections) {
     this.maxTotalConnections = maxTotalConnections;
@@ -309,6 +330,8 @@ public class CrawlConfig {
 
   /**
    * Socket timeout in milliseconds
+   * 
+   * @param socketTimeout The socket timeout
    */
   public void setSocketTimeout(int socketTimeout) {
     this.socketTimeout = socketTimeout;
@@ -320,6 +343,8 @@ public class CrawlConfig {
 
   /**
    * Connection timeout in milliseconds
+   * 
+   * @param connectionTimeout The connection timeout
    */
   public void setConnectionTimeout(int connectionTimeout) {
     this.connectionTimeout = connectionTimeout;
@@ -331,6 +356,8 @@ public class CrawlConfig {
 
   /**
    * Max number of outgoing links which are processed from a page
+   * 
+   * @param maxOutgoingLinksToFollow The maximum number of outgoing links to follow
    */
   public void setMaxOutgoingLinksToFollow(int maxOutgoingLinksToFollow) {
     this.maxOutgoingLinksToFollow = maxOutgoingLinksToFollow;
@@ -343,6 +370,8 @@ public class CrawlConfig {
   /**
    * Max allowed size of a page. Pages larger than this size will not be
    * fetched.
+   * 
+   * @param maxDownloadSize The maximum download size
    */
   public void setMaxDownloadSize(int maxDownloadSize) {
     this.maxDownloadSize = maxDownloadSize;
@@ -354,6 +383,8 @@ public class CrawlConfig {
 
   /**
    * Should we follow redirects?
+   * 
+   * @param followRedirects True to follow redirects, false to skip them.
    */
   public void setFollowRedirects(boolean followRedirects) {
     this.followRedirects = followRedirects;
@@ -367,6 +398,8 @@ public class CrawlConfig {
    * Should the TLD list be updated automatically on each run? Alternatively,
    * it can be loaded from the embedded tld-names.zip file that was obtained from 
    * https://publicsuffix.org/list/effective_tld_names.dat
+   * 
+   * @param online Whether to load the list online
    */
   public void setOnlineTldListUpdate(boolean online) {
       onlineTldListUpdate = online;
@@ -379,6 +412,8 @@ public class CrawlConfig {
   /**
    * Should the robots.txt directives be ignored when adding a seed? If this is set to true,
    * a seed will be fetched even if robots.txt disallows it.
+   * 
+   * @param ignore True to ignore robots.txt directives for seed URLs, false to obey robots.txt always
    */
   public void setIgnoreRobotsTxtForSeed(boolean ignore) {
       ignoreRobotsTxtForSeed = ignore;
@@ -390,6 +425,8 @@ public class CrawlConfig {
   
   /**
    * Should the crawler stop running when the queue is empty?
+   * 
+   * @param shutdown True to shut down on empty queue, false to keep waiting
    */
   public void setShutdownOnEmptyQueue(boolean shutdown) {
       shutdownOnEmptyQueue = shutdown;
@@ -402,6 +439,8 @@ public class CrawlConfig {
   /**
    * If crawler should run behind a proxy, this parameter can be used for
    * specifying the proxy host.
+   * 
+   * @param proxyHost The hostname of the proxy server
    */
   public void setProxyHost(String proxyHost) {
     this.proxyHost = proxyHost;
@@ -414,6 +453,8 @@ public class CrawlConfig {
   /**
    * If crawler should run behind a proxy, this parameter can be used for
    * specifying the proxy port.
+   * 
+   * @param proxyPort The port of the proxy server
    */
   public void setProxyPort(int proxyPort) {
     this.proxyPort = proxyPort;
@@ -427,6 +468,8 @@ public class CrawlConfig {
    * If crawler should run behind a proxy and user/pass is needed for
    * authentication in proxy, this parameter can be used for specifying the
    * username.
+   * 
+   * @param proxyUsername The username to authenticate to the proxy server
    */
   public void setProxyUsername(String proxyUsername) {
     this.proxyUsername = proxyUsername;
@@ -440,6 +483,8 @@ public class CrawlConfig {
    * If crawler should run behind a proxy and user/pass is needed for
    * authentication in proxy, this parameter can be used for specifying the
    * password.
+   * 
+   * @param proxyPassword The password to authenticate to the proxy serer
    */
   public void setProxyPassword(String proxyPassword) {
     this.proxyPassword = proxyPassword;

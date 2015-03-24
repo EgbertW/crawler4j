@@ -23,7 +23,7 @@ import com.sleepycat.persist.model.Entity;
 import com.sleepycat.persist.model.PrimaryKey;
 
 /**
- * @author Yasser Ganjisaffar <lastname at gmail dot com>
+ * @author Yasser Ganjisaffar
  */
 
 @Entity
@@ -46,7 +46,9 @@ public class WebURL implements Serializable {
   private byte priority = 0;
   private String tag;
 
-  /** Copy constructor */
+  /** Copy constructor 
+   * @param rhs The URL to copy
+   */
   public WebURL(WebURL rhs)
   {
     this.url = rhs.url;
@@ -66,8 +68,10 @@ public class WebURL implements Serializable {
   public WebURL()
   {}
 
-/**
-   * Returns the unique document id assigned to this Url.
+  /**
+   * Returns the unique document id assigned to this URL.
+   * 
+   * @return The document ID of the URL
    */
   public int getDocid() {
     return docid;
@@ -103,6 +107,8 @@ public class WebURL implements Serializable {
 
   /**
    * Returns the Url string
+   * 
+   * @return The actual URL
    */
   public String getURL() {
     return url;
@@ -149,6 +155,8 @@ public class WebURL implements Serializable {
   /**
    * Returns the unique document id of the parent page. The parent page is the
    * page in which the Url of this page is first observed.
+   * 
+   * @return The document ID of the parent page
    */
   public int getParentDocid() {
     return parentDocid;
@@ -176,6 +184,8 @@ public class WebURL implements Serializable {
   /**
    * Returns the url of the parent page. The parent page is the page in which
    * the Url of this page is first observed.
+   * 
+   * @return The URL of the parent page
    */
   public String getParentUrl() {
     return parentUrl;
@@ -189,6 +199,8 @@ public class WebURL implements Serializable {
    * Returns the crawl depth at which this Url is first observed. Seed Urls
    * are at depth 0. Urls that are extracted from seed Urls are at depth 1,
    * etc.
+   * 
+   * @return The depth at which this URL is first observed.
    */
   public short getDepth() {
     return depth;
@@ -201,6 +213,8 @@ public class WebURL implements Serializable {
   /**
    * Returns the domain of this Url. For 'http://www.example.com/sample.htm',
    * domain will be 'example.com'
+   * 
+   * @return The domain name of this URL
    */
   public String getDomain() {
     return domain;
@@ -213,6 +227,8 @@ public class WebURL implements Serializable {
   /**
    * Returns the path of this Url. For 'http://www.example.com/sample.htm',
    * domain will be 'sample.htm'
+   * 
+   * @return The path of this URL
    */
   public String getPath() {
     return path;
@@ -225,6 +241,8 @@ public class WebURL implements Serializable {
   /**
    * Returns the anchor string. For example, in <a href="example.com">A sample anchor</a>
    * the anchor string is 'A sample anchor'
+   * 
+   * @return The anchor string.
    */
   public String getAnchor() {
     return anchor;
@@ -237,6 +255,8 @@ public class WebURL implements Serializable {
   /**
    * Returns the priority for crawling this URL.
    * A lower number results in higher priority.
+   * 
+   * @return The priority
    */
   public byte getPriority() {
     return priority;
@@ -248,7 +268,9 @@ public class WebURL implements Serializable {
 
   /**
    * Returns the tag in which this URL is found
-   * */
+   * 
+   * @return The tag in which this URL is founds
+   */
   public String getTag() {
     return tag;
   }

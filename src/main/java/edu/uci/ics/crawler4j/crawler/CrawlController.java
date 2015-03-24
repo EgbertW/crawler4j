@@ -41,7 +41,7 @@ import java.util.List;
  * The controller that manages a crawling session. This class creates the
  * crawler threads and monitors their progress.
  * 
- * @author Yasser Ganjisaffar <lastname at gmail dot com>
+ * @author Yasser Ganjisaffar
  */
 public class CrawlController extends Configurable {
 
@@ -124,6 +124,7 @@ public class CrawlController extends Configurable {
   /**
    * Start the crawling session and wait for it to finish.
    *
+   * @param <T> A class extending WebCrawler
    * @param _c
    *            the class that implements the logic for crawler threads
    * @param numberOfCrawlers
@@ -137,6 +138,7 @@ public class CrawlController extends Configurable {
   /**
    * Start the crawling session and return immediately.
    *
+   *@param <T> A class extending WebCrawler
    * @param _c
    *            the class that implements the logic for crawler threads
    * @param numberOfCrawlers
@@ -277,6 +279,8 @@ public class CrawlController extends Configurable {
    * Once the crawling session finishes the controller collects the local data
    * of the crawler threads and stores them in a List. This function returns
    * the reference to this list.
+   * 
+   * @return The list of local data for the crawlers
    */
   public List<Object> getCrawlersLocalData() {
     return crawlersLocalData;
@@ -306,7 +310,7 @@ public class CrawlController extends Configurable {
    * Adds a new seed URL with a priority of 0. A seed URL is a URL that is fetched
    * by the crawler to extract new URLs in it and follow them for crawling.
    * 
-   * @seealso addSeed(String, int, byte)
+   * @see CrawlController#addSeed(String, int, byte)
    * 
    * @param pageUrl
    *            the URL of the seed

@@ -32,7 +32,7 @@ import edu.uci.ics.crawler4j.url.WebURL;
 /**
  * This class contains the data for a fetched and parsed page.
  *
- * @author Yasser Ganjisaffar <lastname at gmail dot com>
+ * @author Yasser Ganjisaffar
  */
 public class Page {
   /**
@@ -106,8 +106,13 @@ public class Page {
   /**
    * Loads the content of this page from a fetched
    * HttpEntity.
+   * 
+   * @param entity The entity to load as a page
+   * @param max_bytes The maximum number of bytes to process
+   * 
+   * @throws IOException Whenever something goes wrong converting the entity to a byte array
    */
-  public void load(HttpEntity entity, int max_bytes) throws Exception {
+  public void load(HttpEntity entity, int max_bytes) throws IOException {
 
     contentType = null;
     Header type = entity.getContentType();
@@ -214,6 +219,8 @@ public class Page {
   /**
    * Returns headers which were present in the response of the
    * fetch request
+   * 
+   * @return The response headers
    */
   public Header[] getFetchResponseHeaders() {
     return fetchResponseHeaders;
@@ -225,6 +232,8 @@ public class Page {
 
   /**
    * Returns the parsed data generated for this page by parsers
+   * 
+   * @return The parse data
    */
   public ParseData getParseData() {
     return parseData;
@@ -236,6 +245,8 @@ public class Page {
 
   /**
    * Returns the content of this page in binary format.
+   * 
+   * @return The raw content of the page
    */
   public byte[] getContentData() {
     return contentData;
@@ -248,6 +259,8 @@ public class Page {
   /**
    * Returns the ContentType of this page.
    * For example: "text/html; charset=UTF-8"
+   * 
+   * @return The content-type header
    */
   public String getContentType() {
     return contentType;
@@ -260,6 +273,8 @@ public class Page {
   /**
    * Returns the encoding of the content.
    * For example: "gzip"
+   * 
+   * @return The encoding of the content
    */
   public String getContentEncoding() {
     return contentEncoding;
@@ -272,6 +287,8 @@ public class Page {
   /**
    * Returns the charset of the content.
    * For example: "UTF-8"
+   * 
+   * @return The character set of the content
    */
   public String getContentCharset() {
     return contentCharset;

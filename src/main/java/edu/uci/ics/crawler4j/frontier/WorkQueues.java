@@ -27,7 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 
 /**
- * @author Yasser Ganjisaffar <lastname at gmail dot com>
+ * @author Yasser Ganjisaffar
  */
 public class WorkQueues {
 
@@ -81,7 +81,7 @@ public class WorkQueues {
    * 
    * @param max The maximum number of items to return
    * @return The list of items, limited by max
-   * @throws DatabaseException
+   * @throws DatabaseException Whenever a database error occurred
    */
   public List<WebURL> shift(int max) throws DatabaseException {
     synchronized (mutex) {

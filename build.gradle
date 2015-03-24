@@ -30,6 +30,10 @@ artifacts {
     archives javadocJar
 }
 
+javadoc {
+    options.addStringOption('-Xdoclint:none')
+}
+
 uploadArchives {
     repositories {
         mavenDeployer {
