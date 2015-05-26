@@ -286,9 +286,8 @@ public class WebCrawler implements Runnable {
           logger.error("Error occurred", e);
         }
       } else {
-        for (WebURL curURL : assignedURLs) {
-          if (null == curURL)
-            throw new RuntimeException("Unable to obtain the a proper URL from a non-empty list");
+        while (!assignedURLs.isEmpty()) {
+          WebURL curURL = pageFetcher.getBestURL(assignedURLs);
           
           // We should be extremely cautious with external elements messing
           // with the URL as we need to remove it from the queue after processing.
