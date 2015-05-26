@@ -366,6 +366,21 @@ public class CrawlController extends Configurable {
   }
 
   /**
+   * Adds a new seed URL with a priority of 0. A seed URL is a URL that is fetched
+   * by the crawler to extract new URLs in it and follow them for crawling.
+   * 
+   * @seealso addSeed(String, int, byte)
+   * 
+   * @param pageUrl
+   *            the URL of the seed
+   * @param docId
+   *            the document id that you want to be assigned to this seed URL.
+   */
+  public void addSeed(String pageUrl, int docId) {
+    addSeed(pageUrl, docId, (byte)0);
+  }
+    
+  /**
    * Adds a new seed URL. A seed URL is a URL that is fetched by the crawler
    * to extract new URLs in it and follow them for crawling. You can also
    * specify a specific document id to be assigned to this seed URL. This
@@ -382,9 +397,11 @@ public class CrawlController extends Configurable {
    *            the URL of the seed
    * @param docId
    *            the document id that you want to be assigned to this seed URL.
+   * @param priority
+   *            the priority to assign to this seed
    * @return The docId used / assigned for the seed URL
    */
-  public int addSeed(String pageUrl, int docId) {
+  public int addSeed(String pageUrl, int docId, byte priority) {
     String canonicalUrl = URLCanonicalizer.getCanonicalURL(pageUrl);
     if (canonicalUrl == null) {
       logger.error("Invalid seed URL: {}", pageUrl);
@@ -410,6 +427,7 @@ public class CrawlController extends Configurable {
     webUrl.setSeedDocid(docId);
     webUrl.setDocid(docId);
     webUrl.setDepth((short) 0);
+    webUrl.setPriority(priority);
     if (!config.isIgnoreRobotsTxtForSeed() && !robotstxtServer.allows(webUrl)) {
       logger.warn("Robots.txt does not allow this seed: {}",
                   pageUrl); // using the WARN level here, as the user specifically asked to add this seed
