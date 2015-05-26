@@ -67,24 +67,19 @@ public class Frontier extends Configurable {
     this.docIdServer = docIdServer;
     try {
       workQueues = new WorkQueues(env, DATABASE_NAME, config.isResumableCrawling());
-      if (config.isResumableCrawling()) {
-        scheduledPages = counters.getValue(Counters.ReservedCounterNames.SCHEDULED_PAGES);
-        inProcessPages = new InProcessPagesDB(env, config.isResumableCrawling());
-        long numPreviouslyInProcessPages = inProcessPages.getLength();
-        if (numPreviouslyInProcessPages > 0) {
-          logger.info("Rescheduling {} URLs from previous crawl.", numPreviouslyInProcessPages);
-          scheduledPages -= numPreviouslyInProcessPages;
-          while (true) {
-            List<WebURL> urls = inProcessPages.shift(IN_PROCESS_RESCHEDULE_BATCH_SIZE);
-            if (urls.size() == 0) {
-              break;
-            }
-            scheduleAll(urls);
+      scheduledPages = counters.getValue(Counters.ReservedCounterNames.SCHEDULED_PAGES);
+      inProcessPages = new InProcessPagesDB(env, config.isResumableCrawling());
+      long numPreviouslyInProcessPages = inProcessPages.getLength();
+      if (numPreviouslyInProcessPages > 0) {
+        logger.info("Rescheduling {} URLs from previous crawl.", numPreviouslyInProcessPages);
+        scheduledPages -= numPreviouslyInProcessPages;
+        while (true) {
+          List<WebURL> urls = inProcessPages.shift(100);
+          if (urls.size() == 0) {
+            break;
           }
+          scheduleAll(urls);
         }
-      } else {
-        inProcessPages = null;
-        scheduledPages = 0;
       }
     } catch (DatabaseException e) {
       logger.error("Error while initializing the Frontier", e);
