@@ -101,7 +101,7 @@ public class RobotstxtServer {
       fetchResult = pageFetcher.fetchPage(robotsTxtUrl);
       if (fetchResult.getStatusCode() == HttpStatus.SC_OK) {
         Page page = new Page(robotsTxtUrl);
-        fetchResult.fetchContent(page);
+        fetchResult.fetchContent(page, 16384);
         if (Util.hasPlainTextContent(page.getContentType())) {
           try {
             String content = "";
