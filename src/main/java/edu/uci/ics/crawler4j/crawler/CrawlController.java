@@ -376,8 +376,8 @@ public class CrawlController extends Configurable {
    * @param docId
    *            the document id that you want to be assigned to this seed URL.
    */
-  public void addSeed(String pageUrl, int docId) {
-    addSeed(pageUrl, docId, (byte)0);
+  public int addSeed(String pageUrl, int docId) {
+    return addSeed(pageUrl, docId, (byte)0);
   }
     
   /**
