@@ -115,6 +115,12 @@ public class CrawlConfig {
    * Should we follow redirects?
    */
   private boolean followRedirects = true;
+    
+  /**
+   * Should the robots.txt directives be ignored when adding a seed? If this is set to true,
+   * a seed will be fetched even if robots.txt disallows it.
+   */
+  private boolean ignoreRobotsTxtForSeed = false;
 
   /**
    * Should the TLD list be updated automatically on each run? Alternatively,
@@ -393,6 +399,18 @@ public class CrawlConfig {
    */
   public void setShutdownOnEmptyQueue(boolean shutdown) {
       shutdownOnEmptyQueue = shutdown;
+  }
+
+  public boolean isIgnoreRobotsTxtForSeed() {
+      return ignoreRobotsTxtForSeed;
+  }
+  
+  /**
+   * Should the robots.txt directives be ignored when adding a seed? If this is set to true,
+   * a seed will be fetched even if robots.txt disallows it.
+   */
+  public void setIgnoreRobotsTxtForSeed(boolean ignore) {
+      ignoreRobotsTxtForSeed = ignore;
   }
 
   public boolean isOnlineTldListUpdate() {

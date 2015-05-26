@@ -410,8 +410,9 @@ public class CrawlController extends Configurable {
     webUrl.setSeedDocid(docId);
     webUrl.setDocid(docId);
     webUrl.setDepth((short) 0);
-    if (!robotstxtServer.allows(webUrl)) {
-      logger.info("Robots.txt does not allow this seed: {}", pageUrl);
+    if (!config.isIgnoreRobotsTxtForSeed() && !robotstxtServer.allows(webUrl)) {
+      logger.warn("Robots.txt does not allow this seed: {}",
+                  pageUrl); // using the WARN level here, as the user specifically asked to add this seed
     } else {
       frontier.schedule(webUrl);
     }
