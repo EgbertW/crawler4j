@@ -128,6 +128,11 @@ public class Frontier extends Configurable {
         logger.error("Error while putting the url in the work queue", e);
       }
     }
+    
+    // Wake up threads
+    synchronized (waitingList) {
+      waitingList.notifyAll();
+    }
   }
 
   public void getNextURLs(int max, List<WebURL> result) {
