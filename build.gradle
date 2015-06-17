@@ -39,6 +39,7 @@ javadoc {
 uploadArchives {
     repositories {
         mavenDeployer {
+            repository(url: "file:///opt/maven/")
             pom.groupId = 'edu.uci.ics'
             pom.artifactId = 'crawler4j'
             pom.version = '4.2-SNAPSHOT'

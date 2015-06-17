@@ -74,7 +74,7 @@ public class Frontier extends Configurable {
         logger.info("Rescheduling {} URLs from previous crawl.", numPreviouslyInProcessPages);
         scheduledPages -= numPreviouslyInProcessPages;
         while (true) {
-          List<WebURL> urls = inProcessPages.shift(100);
+          List<WebURL> urls = inProcessPages.shift(IN_PROCESS_RESCHEDULE_BATCH_SIZE);
           if (urls.size() == 0) {
             break;
           }
