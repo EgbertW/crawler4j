@@ -47,7 +47,7 @@ public class RobotstxtServer {
 
   protected RobotstxtConfig config;
 
-  protected final Map<String, HostDirectives []> host2directivesCache = new HashMap<>();
+  protected final Map<String, HostDirectives> host2directivesCache = new HashMap<>();
 
   protected PageFetcher pageFetcher;
 
@@ -70,9 +70,9 @@ public class RobotstxtServer {
       String host = getHost(url);
       String path = url.getPath();
 
-      HostDirectives directives [] = host2directivesCache.get(host);
+      HostDirectives directives = host2directivesCache.get(host);
 
-      if (directives != null && directives[0].needsRefetch()) {
+      if (directives != null && directives.needsRefetch()) {
         synchronized (host2directivesCache) {
           host2directivesCache.remove(host);
           directives = null;
@@ -82,20 +82,22 @@ public class RobotstxtServer {
       if (directives == null) {
         directives = fetchDirectives(url);
       }
-      return directives[1].allows(path) || (directives[0].allows(path) && !directives[1].disallows(path));
+      return directives.allows(path);
     } catch (MalformedURLException e) {
       logger.error("Bad URL in Robots.txt: " + webURL.getURL(), e);
     }
 
+    logger.warn("RobotstxtServer: default: allow", webURL.getURL());
     return true;
   }
 
-  private HostDirectives [] fetchDirectives(URL url) {
+  private HostDirectives fetchDirectives(URL url) {
     WebURL robotsTxtUrl = new WebURL();
     String host = getHost(url);
     String port = ((url.getPort() == url.getDefaultPort()) || (url.getPort() == -1)) ? "" : (":" + url.getPort());
-    robotsTxtUrl.setURL("http://" + host + port + "/robots.txt");
-    HostDirectives [] directives = null;
+    String proto = url.getProtocol();
+    robotsTxtUrl.setURL(proto + "://" + host + port + "/robots.txt");
+    HostDirectives directives = null;
     PageFetchResult fetchResult = null;
     try {
       fetchResult = pageFetcher.fetchPage(robotsTxtUrl);
@@ -144,15 +146,14 @@ public class RobotstxtServer {
     if (directives == null) {
       // We still need to have this object to keep track of the time we
       // fetched it
-      HostDirectives result [] =  {new HostDirectives(), new HostDirectives()};
-      directives = result;
+      directives = new HostDirectives(config);
     }
     synchronized (host2directivesCache) {
       if (host2directivesCache.size() == config.getCacheSize()) {
         String minHost = null;
         long minAccessTime = Long.MAX_VALUE;
-        for (Entry<String, HostDirectives []> entry : host2directivesCache.entrySet()) {
-          long entryAccessTime = Math.max(entry.getValue()[0].getLastAccessTime(), entry.getValue()[1].getLastAccessTime());
+        for (Entry<String, HostDirectives> entry : host2directivesCache.entrySet()) {
+          long entryAccessTime = entry.getValue().getLastAccessTime();
           if (entryAccessTime < minAccessTime) {
             minAccessTime = entryAccessTime;
             minHost = entry.getKey();
