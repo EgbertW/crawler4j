@@ -72,7 +72,8 @@ public class UserAgentDirectives {
   
   /** 
    * Create a UserAgentDirectives clause
-   * @param userAgent The user agent for this rule
+   * 
+   * @param userAgents The list user agents for this rule
    */
   public UserAgentDirectives(Set<String> userAgents) {
     this.userAgents = userAgents;
@@ -83,8 +84,8 @@ public class UserAgentDirectives {
    * user agent. The returned value will be the maximum match length
    * of any user agent.
    * 
-   * @param userAgent
-   * @return
+   * @param userAgent The user agent used by the crawler
+   * @return The maximum length of a matching user agent in this set of directives
    */
   public int match(String userAgent) {
     userAgent = userAgent.toLowerCase();
@@ -217,7 +218,7 @@ public class UserAgentDirectives {
   /**
    * Return the listed sitemaps, or null if none was specified
    * 
-   * @return
+   * @return The list of sitemap-links specified in robots.txt
    */
   public List<String> getSitemap() {
     return sitemap;

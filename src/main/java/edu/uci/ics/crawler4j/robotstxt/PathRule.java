@@ -20,8 +20,8 @@ public class PathRule {
    *    * matches any sequence of characters, including /
    *    $ matches the end of the line
    *    
-   * @param pattern
-   * @param path
+   * @param pattern The pattern to convert
+   * @return The compiled regexp pattern created from the robots.txt pattern
    */
   public static Pattern robotsPatternToRegexp(String pattern)
   {
