@@ -179,10 +179,10 @@ public class Frontier extends Configurable {
         // Always attempt to keep a decent queue size
         if (current_queue.size() < 25) {
           List<WebURL> urls = workQueues.shift(100);
-          logger.info("Adding {} new urls to current_queue", urls.size());
+          logger.error("Adding {} new urls to current_queue", urls.size());
           for (WebURL url : urls) {
             if (inProcessPages.put(url)) {
-              current_queue.add(url); logger.info("Added url {}", url.getURL()); }
+              current_queue.add(url); logger.error("Added url {}", url.getURL()); }
           }
         }
         logger.info("Queue-size: {}", current_queue.size());
@@ -190,7 +190,7 @@ public class Frontier extends Configurable {
         if (!current_queue.isEmpty())
         {
           WebURL url = pageFetcher.getBestURL(current_queue);
-          logger.info("Assigned URL: {}", url.getURL());
+          logger.error("Assigned URL: {}", url.getURL());
           current_queue.remove(url);
           return url;
         }
