@@ -104,7 +104,7 @@ public class WebCrawler implements Runnable {
   /** 
    * The queue of URLs for this crawler instance
    */
-  private List<WebURL> assignedURLs = new ArrayList<>(50);
+  private WebURL assignedURL = null;
   
   /**
    * Initializes the current instance of the crawler
@@ -262,9 +262,9 @@ public class WebCrawler implements Runnable {
    * 
    * @return The list of assigned URLs
    */
-  public List<WebURL> extractAssignedURLs() {
-      List<WebURL> cur = assignedURLs;
-      assignedURLs = new ArrayList<WebURL>();
+  public WebURL extractAssignedURLs() {
+      WebURL cur = assignedURL;
+      assignedURL = null;
       return cur;
   }
   
@@ -274,62 +274,42 @@ public class WebCrawler implements Runnable {
    * 
    * @param list The list of assigned URLs to add
    */
-  public void resume(List<WebURL> list) {
-      assignedURLs.addAll(list);
+  public void resume(WebURL url) {
+      assignedURL = url;
   }
 
   @Override
   public void run() {
     onStart();
     while (true) {
-      if (assignedURLs.isEmpty())
-      {
+      if (assignedURL == null) {
         isWaitingForNewURLs = true;
-        logger.info("Getting 50 new urls");
-        frontier.getNextURLs(50, assignedURLs);
-        logger.info("Got {} new urls", assignedURLs.size());
+        assignedURL = frontier.getNextURL(pageFetcher);
         isWaitingForNewURLs = false;
       }
-      if (assignedURLs.isEmpty()) {
-        if (frontier.isFinished()) {
+      if (assignedURL != null) {
+        // We should be extremely cautious with external elements messing
+        // with the URL as we need to remove it from the queue after processing.
+        // Therefore, a full copy is made before passing it along.
+        WebURL backup = new WebURL(assignedURL);
+          
+        try {
+          WebURL fetchURL = handleUrlBeforeProcess(assignedURL);
+          if (fetchURL != null)
+            processPage(fetchURL);
+        } finally {
+          // Handle the finishing of the URL in the finally clause
+          // to make sure it is ALWAYS executed, no matter what.
+          boolean seedEnded = frontier.setProcessed(backup);
+            
+          // Now, we can run the handleSeedEnd if this is necessary
+          if (seedEnded)
+            handleSeedEnd(backup.getSeedDocid());
+        }
+        if (myController.isShuttingDown()) {
+          logger.info("Exiting because of controller shutdown.");
           return;
         }
-        try {
-          Thread.sleep(3000);
-        } catch (InterruptedException e) {
-          logger.error("Error occurred", e);
-        }
-      } else {
-        while (!assignedURLs.isEmpty()) {
-          WebURL curURL = pageFetcher.getBestURL(assignedURLs);
-          
-          // We should be extremely cautious with external elements messing
-          // with the URL as we need to remove it from the queue after processing.
-          // Therefore, a full copy is made before passing it along.
-          WebURL backup = new WebURL(curURL);
-          
-          try {
-            assignedURLs.remove(curURL);
-            WebURL fetchURL = handleUrlBeforeProcess(curURL);
-            if (fetchURL != null)
-              processPage(fetchURL);
-          } finally {
-            // Handle the finishing of the URL in the finally clause
-            // to make sure it is ALWAYS executed, no matter what.
-            boolean seedEnded = frontier.setProcessed(backup);
-            
-            // Now, we can run the handleSeedEnd if this is necessary
-            if (seedEnded)
-              handleSeedEnd(backup.getSeedDocid());
-          }
-          if (myController.isShuttingDown()) {
-            logger.info("Exiting because of controller shutdown.");
-            return;
-          }
-        }
-        
-        // Empty list of URLs as they've been processed now
-        assignedURLs.clear();
       }
     }
   }

@@ -18,6 +18,8 @@
 package edu.uci.ics.crawler4j.frontier;
 
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +29,7 @@ import com.sleepycat.je.Environment;
 
 import edu.uci.ics.crawler4j.crawler.Configurable;
 import edu.uci.ics.crawler4j.crawler.CrawlConfig;
+import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.url.WebURL;
 
 /**
@@ -60,6 +63,9 @@ public class Frontier extends Configurable {
   protected DocIDServer docIdServer;
   
   protected Counters counters;
+  
+  /** An ordered list of the top of the work queue, sorted by priority and docid */
+  protected Set<WebURL> current_queue = new TreeSet<WebURL>();
 
   public Frontier(Environment env, CrawlConfig config, DocIDServer docIdServer) {
     super(config);
@@ -162,37 +168,35 @@ public class Frontier extends Configurable {
       }
     }
   }
-
-  public void getNextURLs(int max, List<WebURL> result) {
-    while (true) {
+  
+  public WebURL getNextURL(PageFetcher pageFetcher) {
+    while (true)
+    {
       synchronized (mutex) {
-        if (isFinished) {
-          return;
-        }
-        try {
-          List<WebURL> curResults = workQueues.shift(max);
-          for (WebURL curPage : curResults) {
-            if (inProcessPages.put(curPage))
-              result.add(curPage);
+        // Always attempt to keep a decent queue size
+        if (current_queue.size() < 25) {
+          List<WebURL> urls = workQueues.shift(100);
+          for (WebURL url : urls) {
+            if (inProcessPages.put(url))
+              current_queue.add(url);
           }
-        } catch (DatabaseException e) {
-          logger.error("Error while getting next urls", e);
         }
-
-        if (result.size() > 0) {
-          return;
+        logger.info("Queue-size: {}", current_queue.size());
+        
+        if (!current_queue.isEmpty())
+        {
+          WebURL url = pageFetcher.getBestURL(current_queue);
+          current_queue.remove(url);
+          return url;
         }
       }
-
-      try {
-        synchronized (waitingList) {
+      
+      // Nothing available, wait for more
+      synchronized (waitingList) {
+        try {
           waitingList.wait();
-        }
-      } catch (InterruptedException ignored) {
-        // Do nothing
-      }
-      if (isFinished) {
-        return;
+        } catch (InterruptedException e)
+        {}
       }
     }
   }
