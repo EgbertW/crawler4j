@@ -310,6 +310,7 @@ public class WebCrawler implements Runnable {
           logger.info("Exiting because of controller shutdown.");
           return;
         }
+        assignedURL = null;
       }
     }
   }
