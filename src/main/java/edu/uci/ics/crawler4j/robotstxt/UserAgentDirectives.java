@@ -3,6 +3,7 @@ package edu.uci.ics.crawler4j.robotstxt;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -18,8 +19,7 @@ import org.slf4j.LoggerFactory;
 public class UserAgentDirectives {
   public static final Logger logger = LoggerFactory.getLogger(UserAgentDirectives.class);
 
-  public String crawlUserAgent;
-  public String userAgent;
+  public Set<String> userAgents;
   private List<String> sitemap = null;
   private String preferred_host = null;
   private Double crawl_delay = null;
@@ -74,14 +74,39 @@ public class UserAgentDirectives {
    * Create a UserAgentDirectives clause
    * @param userAgent The user agent for this rule
    */
-  public UserAgentDirectives(String userAgent, String crawlUserAgent) {
-    this.userAgent = userAgent;
-    this.crawlUserAgent = crawlUserAgent;
+  public UserAgentDirectives(Set<String> userAgents) {
+    this.userAgents = userAgents;
   }
   
-  public int checkAccess(String path) {
+  /**
+   * Match the current user agent directive set with the given
+   * user agent. The returned value will be the maximum match length
+   * of any user agent.
+   * 
+   * @param userAgent
+   * @return
+   */
+  public int match(String userAgent) {
+    userAgent = userAgent.toLowerCase();
+    int max_length = 0;
+    for (String ua : userAgents) {
+      if (ua.equals("*") || userAgent.contains(ua))
+        max_length = Math.max(max_length, ua.length());
+    }
+    return max_length;
+  }
+  
+  public boolean isWildcard() {
+    return userAgents.contains("*");
+  }
+  
+  public boolean isEmpty() {
+    return path_rules.isEmpty();
+  }
+  
+  public int checkAccess(String path, String userAgent) {
     // If the user agent does not match, the verdict is known
-    if (!userAgent.equals("*") && !crawlUserAgent.contains(userAgent))
+    if (match(userAgent) == 0)
       return HostDirectives.UNDEFINED;
     
     // Order the rules based on their match with the path
@@ -107,39 +132,30 @@ public class UserAgentDirectives {
     @Override
     public int compare(UserAgentDirectives lhs, UserAgentDirectives rhs)
     {
-      // Simple case: user agents are equal
-      if (lhs.userAgent.equals(rhs.userAgent))
-        return 0;
-    
-      boolean o1_contains = crawlUserAgent.contains(lhs.userAgent);
-      boolean o2_contains = crawlUserAgent.contains(rhs.userAgent);
+      int match_lhs = lhs.match(crawlUserAgent);
+      int match_rhs = rhs.match(crawlUserAgent);
+      if (match_lhs != match_rhs)
+        return Integer.compare(match_rhs, match_lhs); // Sort descending
       
-      if (!o1_contains && !o2_contains)
-      {
-        // Both user-agents do not match. However, one of them could be a wildcard.
-        // As these, by definition, match the UA, they should be preferred 
-        // to completely non-matching rules
-        if (lhs.userAgent.equals("*"))
-        {
-          if (rhs.userAgent.equals("*"))
-          return 0;
-        }
-        else if (rhs.userAgent.equals("*"))
-          return 1;
-        
-        // Just use alphabetic ordering
-        return lhs.userAgent.compareTo(rhs.userAgent);
+      // Return the shortest list of user-agents unequal
+      if (lhs.userAgents.size() != rhs.userAgents.size())
+        return Integer.compare(lhs.userAgents.size(), rhs.userAgents.size());
+      
+      // Alphabetic sort when length of lists is equal
+      Iterator<String> i1 = lhs.userAgents.iterator();
+      Iterator<String> i2 = rhs.userAgents.iterator();
+      
+      // Find first non-equal user agent
+      while (i1.hasNext()) {
+        String ua1 = i1.next();
+        String ua2 = i2.next();
+        int order = ua1.compareTo(ua2);
+        if (order != 0)
+          return order;
       }
-    
-      // Check if either of them, but not both, match the UA.
-      // In that case, prefer the matching UA
-      if (o1_contains && !o2_contains)
-        return -1;
-      else if (!o1_contains && o2_contains)
-        return 1;
-    
-      // Both match the UA. Find the best matching UA (== the longest match)
-      return Integer.compare(rhs.userAgent.length(), lhs.userAgent.length());
+      
+      // List of user agents was also equal, so these directives are equal
+      return 0;
     }
   }
   

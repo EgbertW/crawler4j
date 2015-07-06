@@ -30,6 +30,11 @@ public class PathRule {
     StringBuilder quote_buf = new StringBuilder();
     boolean terminated = false;
     
+    // If the pattern is empty, match only completely empty entries, e.g., none as 
+    // there will always be a leading forward slash.
+    if (pattern.isEmpty())
+      return Pattern.compile("^$");
+    
     // Iterate over the characters
     for (int pos = 0; pos < pattern.length(); ++pos) {
       char ch = pattern.charAt(pos);

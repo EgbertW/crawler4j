@@ -19,6 +19,7 @@ package edu.uci.ics.crawler4j.robotstxt;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -39,7 +40,7 @@ public class RobotstxtParser {
 
     StringTokenizer st = new StringTokenizer(content, "\n\r");
 
-    String currentUserAgent = "*";
+    Set<String> userAgents = new HashSet<String>();
     UserAgentDirectives ua_directives = null;
     
     while (st.hasMoreTokens()) {
@@ -64,11 +65,23 @@ public class RobotstxtParser {
         
         if (VALID_RULES.contains(rule)) {
           if (rule.equals("user-agent")) {
-            currentUserAgent = value.toLowerCase();
-            ua_directives = null;
+            String currentUserAgent = value.toLowerCase();
+            if (ua_directives != null) {
+              // If ua_directives is not null, this means that one or
+              // more rules followed the User-agent: defininition list
+              // In that case, it's not allowed to add more user-agents,
+              // so this is an entirely new set of directives.
+              userAgents = new HashSet<String>();
+              directives.addDirectives(ua_directives);
+              ua_directives = null;
+            }
+            userAgents.add(currentUserAgent);
           } else {
-            if (ua_directives == null)
-              ua_directives = directives.getDirectives(currentUserAgent);
+            if (ua_directives == null) {
+              if (userAgents.isEmpty()) // No "User-agent": clause defaults to wildcard UA
+                userAgents.add("*");
+              ua_directives = new UserAgentDirectives(userAgents);
+            }
             ua_directives.add(rule,  value);
           }
         } else {

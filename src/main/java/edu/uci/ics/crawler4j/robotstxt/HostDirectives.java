@@ -32,7 +32,7 @@ public class HostDirectives {
   public static final int UNDEFINED = 3;
   
   /** A list of rule sets, sorted on match with the configured user agent */
-  private final TreeSet<UserAgentDirectives> rules;
+  private TreeSet<UserAgentDirectives> rules;
   
   private final long timeFetched;
   private long timeLastAccessed;
@@ -42,7 +42,7 @@ public class HostDirectives {
   public HostDirectives(RobotstxtConfig configuration) {
     timeFetched = System.currentTimeMillis();
     config = configuration;
-    userAgent = config.getUserAgentName();
+    userAgent = config.getUserAgentName().toLowerCase();
     rules = new TreeSet<UserAgentDirectives>(new UserAgentDirectives.UserAgentComparator(userAgent));
   }
 
@@ -58,6 +58,21 @@ public class HostDirectives {
    */
   public boolean allows(String path) {
     return checkAccess(path) != DISALLOWED;
+  }
+  
+  /**
+   * Change the user agent string used to crawl after initialization. This will
+   * reorder (recreate) the list of user agent directives for this host.
+   * 
+   * @param userAgent The new user agent to use.
+   */
+  public void setUserAgent(String userAgent) {
+    this.userAgent = userAgent.toLowerCase();
+    
+    // Re-order the set
+    TreeSet<UserAgentDirectives> replace = new TreeSet<UserAgentDirectives>(new UserAgentDirectives.UserAgentComparator(this.userAgent));
+    replace.addAll(rules);
+    rules = replace;
   }
   
   /**
@@ -80,50 +95,49 @@ public class HostDirectives {
     timeLastAccessed = System.currentTimeMillis();
     int result = UNDEFINED;
     String myUA = config.getUserAgentName();
-    boolean ignoreUA = config.getIgnoreUserAgentInAllow();
-    for (UserAgentDirectives ua : rules) {
-      boolean matchingUA = myUA.contains(ua.userAgent) && !ua.userAgent.equals("*");
-      
-      // If ignoreUA is disabled and the current UA doesn't match, the rest will not match
-      // so we are done here.
-      if (!matchingUA && !ignoreUA)
-        break;
+    boolean ignoreUADisc = config.getIgnoreUADiscrimination();
     
+    // When checking rules, the list of rules is already ordered based on the
+    // match of the user-agent of the clause with the user-agent of the crawler.
+    // The most specific match should come first.
+    //
+    // Only the most specific match is obeyed, unless ignoreUADiscrimination is 
+    // enabled. In that case, any matching non-wildcard clause that explicitly
+    // disallows the path is obeyed. If no such rule exists and any UA in the list
+    // is allowed access, that rule is obeyed.
+    for (UserAgentDirectives ua : rules) {
+      int score = ua.match(myUA);
+      
+      // If ignoreUADisc is disabled and the current UA doesn't match,
+      // the rest will not match so we are done here.
+      if (score == 0 && !ignoreUADisc)
+        break;
+      
       // Match the rule to the path
-      result = ua.checkAccess(path);
+      result = ua.checkAccess(path, userAgent);
       
-      // If the rule allows the path, we have our answer
-      if (result == ALLOWED)
+      // If the result is ALLOWED or UNDEFINED, or if
+      // this is a wildcard rule and ignoreUADisc is disabled,
+      // this is the final verdict.
+      if (result != DISALLOWED || (!ua.isWildcard() || !ignoreUADisc)) {
         break;
-      // If the rule disallows the path, check if the UA actually matches, because
-      // we could also have gotten here because ignoreUA is true
-      else if (result == DISALLOWED && matchingUA)
-        break;
+      }
       
-      // Rule didn't apply based on the configuration, or did not state anything
-      // about the current path.
-      result = UNDEFINED;
+      // This is a wildcard rule that disallows access. The verdict is stored,
+      // but the other rules will also be checked to see if any specific UA is allowed
+      // access to this path. If so, that positive UA discrimination is ignored
+      // and we crawl the page anyway.
     }
     return result;
   }
   
   /** 
-   * Get a ruleset for the specified user agent. If it does not exist yet,
-   * it will be created.
+   * Store set of directives
    *
-   * @param userAgent The name of the user agent definition
-   * @return The UserAgentRules directives
+   * @param directives The set of directives to add to this host
    */
-  public UserAgentDirectives getDirectives(String userAgent) {
-    UserAgentDirectives directives = new UserAgentDirectives(userAgent, this.userAgent);
-    if (!rules.add(directives)) {
-      for (UserAgentDirectives ua : rules) {
-        if (ua.userAgent.equals(userAgent))
-          return ua;
-      }
-    }
-    
-    return directives;
+  public void addDirectives(UserAgentDirectives directives) {
+    rules.add(directives);
   }
   
   public long getLastAccessTime() {
