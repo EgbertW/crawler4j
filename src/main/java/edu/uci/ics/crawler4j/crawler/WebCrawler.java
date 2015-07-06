@@ -415,6 +415,7 @@ public class WebCrawler implements Runnable {
             webURL.setDepth(curURL.getDepth());
             webURL.setDocid(-1);
             webURL.setAnchor(curURL.getAnchor());
+            webURL.setPriority(curURL.getPriority());
             if (shouldVisit(page, webURL)) {
               if (robotstxtServer.allows(webURL)) {
                 webURL.setDocid(docIdServer.getNewDocID(movedToUrl));
@@ -472,6 +473,7 @@ public class WebCrawler implements Runnable {
             if ((maxCrawlDepth == -1) || (curURL.getDepth() < maxCrawlDepth)) {
               if (shouldVisit(page, webURL)) {
                 if (robotstxtServer.allows(webURL)) {
+                  logger.info("Priority after shouldVisit policy: {}", webURL.getPriority());
                   webURL.setDocid(docIdServer.getNewDocID(webURL.getURL()));
                   toSchedule.add(webURL);
                 } else {
