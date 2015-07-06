@@ -101,6 +101,11 @@ public class WebCrawler implements Runnable {
    */
   private boolean isWaitingForNewURLs;
 
+  /** 
+   * The queue of URLs for this crawler instance
+   */
+  private WebURL assignedURL = null;
+  
   /**
    * Initializes the current instance of the crawler
    *
@@ -236,37 +241,50 @@ public class WebCrawler implements Runnable {
   public Object getMyLocalData() {
     return null;
   }
+  
+  /**
+   * Replace the list of URLs in progress with a new empty
+   * list and return the current list. This may be called by the
+   * CrawlController to relocate URLs to a newly started thread
+   * in case of a crash. Should only be called when the thread is dead.
+   * 
+   * @return The list of assigned URLs
+   */
+  public WebURL extractAssignedURLs() {
+      WebURL cur = assignedURL;
+      assignedURL = null;
+      return cur;
+  }
+  
+  /**
+   * Add all urls from a list to the assigned URLs. This should be used
+   * with the result of extractAssignedURLs from a different instance.
+   * 
+   * @param list The list of assigned URLs to add
+   */
+  public void resume(WebURL url) {
+      assignedURL = url;
+  }
 
   @Override
   public void run() {
     onStart();
     while (true) {
-      List<WebURL> assignedURLs = new ArrayList<>(50);
-      isWaitingForNewURLs = true;
-      frontier.getNextURLs(50, assignedURLs);
-      isWaitingForNewURLs = false;
-      if (assignedURLs.isEmpty()) {
-        if (frontier.isFinished()) {
-          return;
-        }
-        try {
-          Thread.sleep(3000);
-        } catch (InterruptedException e) {
-          logger.error("Error occurred", e);
-        }
-      } else {
-        for (WebURL curURL : assignedURLs) {
-          if (curURL != null) {
-            curURL = handleUrlBeforeProcess(curURL);
-            processPage(curURL);
-            frontier.setProcessed(curURL);
-          }
-          if (myController.isShuttingDown()) {
-            logger.info("Exiting because of controller shutdown.");
-            return;
-          }
-        }
+      if (assignedURL == null) {
+        isWaitingForNewURLs = true;
+        assignedURL = frontier.getNextURL(pageFetcher);
+        isWaitingForNewURLs = false;
       }
+      if (assignedURL != null) {
+        assignedURL = handleUrlBeforeProcess(assignedURL);
+        processPage(assignedURL);
+        frontier.setProcessed(assignedURL);
+      }
+      if (myController.isShuttingDown()) {
+        logger.info("Exiting because of controller shutdown.");
+        return;
+      }
+      assignedURL = null;
     }
   }
 

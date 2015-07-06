@@ -27,7 +27,7 @@ import com.sleepycat.persist.model.PrimaryKey;
  */
 
 @Entity
-public class WebURL implements Serializable {
+public class WebURL implements Serializable, Comparable<WebURL> {
 
   private static final long serialVersionUID = 1L;
 
@@ -214,5 +214,11 @@ public class WebURL implements Serializable {
   @Override
   public String toString() {
     return url;
+  }
+  
+  public int compareTo(WebURL rhs) {
+    if (priority == rhs.priority)
+      return Integer.compare(docid, rhs.docid);
+    return Integer.compare(priority, rhs.priority);
   }
 }
