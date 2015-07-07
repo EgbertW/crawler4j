@@ -100,7 +100,16 @@ public class RobotstxtServer {
     HostDirectives directives = null;
     PageFetchResult fetchResult = null;
     try {
-      fetchResult = pageFetcher.fetchPage(robotsTxtUrl);
+      for (int redir = 0; redir < 3; ++redir) {
+        fetchResult = pageFetcher.fetchPage(robotsTxtUrl);
+        int status = fetchResult.getStatusCode();
+        // Follow redirects up to 3 levels
+        if (status >= 300 && status <= 308 && fetchResult.getMovedToUrl() != null)
+          robotsTxtUrl.setURL(fetchResult.getMovedToUrl());
+        else // Done on all other occasions
+          break;
+      }
+      
       if (fetchResult.getStatusCode() == HttpStatus.SC_OK) {
         Page page = new Page(robotsTxtUrl);
         fetchResult.fetchContent(page, 16384);
