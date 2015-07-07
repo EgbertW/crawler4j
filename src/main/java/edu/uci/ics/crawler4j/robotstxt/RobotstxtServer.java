@@ -105,7 +105,10 @@ public class RobotstxtServer {
         int status = fetchResult.getStatusCode();
         // Follow redirects up to 3 levels
         if (status >= 300 && status <= 308 && fetchResult.getMovedToUrl() != null)
+        {
           robotsTxtUrl.setURL(fetchResult.getMovedToUrl());
+          fetchResult.discardContentIfNotConsumed();
+        }
         else // Done on all other occasions
           break;
       }
