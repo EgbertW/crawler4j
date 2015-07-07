@@ -30,9 +30,11 @@ import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+
 import javax.net.ssl.SSLContext;
 
 import edu.uci.ics.crawler4j.crawler.authentication.NtAuthInfo;
+
 import org.apache.http.Header;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
@@ -46,6 +48,7 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -322,7 +325,7 @@ public class PageFetcher extends Configurable {
       // Applying Politeness delay
       enforcePolitenessDelay(webUrl);
 
-      HttpResponse response = httpClient.execute(request);
+      CloseableHttpResponse response = httpClient.execute(request);
       fetchResult.setEntity(response.getEntity());
       fetchResult.setResponseHeaders(response.getAllHeaders());
 
@@ -362,6 +365,7 @@ public class PageFetcher extends Configurable {
             }
           }
           if (size > config.getMaxDownloadSize()) {
+            response.close();
             throw new PageBiggerThanMaxSizeException(size);
           }
         }
