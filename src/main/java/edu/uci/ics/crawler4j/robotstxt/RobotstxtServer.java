@@ -104,8 +104,13 @@ public class RobotstxtServer {
         fetchResult = pageFetcher.fetchPage(robotsTxtUrl);
         int status = fetchResult.getStatusCode();
         // Follow redirects up to 3 levels
-        if (status >= 300 && status <= 308 && fetchResult.getMovedToUrl() != null)
-        {
+        if ((status == HttpStatus.SC_MULTIPLE_CHOICES ||
+            status == HttpStatus.SC_MOVED_PERMANENTLY || 
+            status == HttpStatus.SC_MOVED_TEMPORARILY || 
+            status == HttpStatus.SC_SEE_OTHER || 
+            status == HttpStatus.SC_TEMPORARY_REDIRECT || 
+            status == 308) && // SC_PERMANENT_REDIRECT RFC7538
+            fetchResult.getMovedToUrl() != null) {
           robotsTxtUrl.setURL(fetchResult.getMovedToUrl());
           fetchResult.discardContentIfNotConsumed();
         }
