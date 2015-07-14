@@ -88,9 +88,14 @@ public class URLCanonicalizer {
 
       path = path.trim();
 
-      final SortedMap<String, String> params = createParameterMap(canonicalURL.getQuery());
+      SortedMap<String, String> params = createParameterMap(canonicalURL.getQuery());
       if (fragment != null)
+      {
+          if (params == null)
+              params = new TreeMap<String, String>();
           params.put("_escaped_fragment_", fragment);
+      }
+      
       final String queryString;
       if ((params != null) && !params.isEmpty()) {
         String canonicalParams = canonicalize(params);
