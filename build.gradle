@@ -4,6 +4,9 @@ apply plugin: 'eclipse'
 
 repositories {
     mavenCentral()
+    maven {
+        url "file:///opt/maven/"
+    }
 }
 
 dependencies {
