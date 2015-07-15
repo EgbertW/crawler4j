@@ -24,6 +24,7 @@ import java.net.UnknownHostException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -204,15 +205,12 @@ public class PageFetcher extends Configurable {
    
    synchronized (nextFetchTimes) {
      // Remove pages visited more than the politeness delay ago
-     ArrayList<String> hosts_to_remove = new ArrayList<String>();
-     for (Map.Entry<String, Long> entry : nextFetchTimes.entrySet())
-     {
+     Iterator<Map.Entry<String, Long>> iterator = nextFetchTimes.entrySet().iterator();
+     while (iterator.hasNext()) {
+       Map.Entry<String, Long> entry = iterator.next();
        if (entry.getValue() < now)
-         hosts_to_remove.add(entry.getKey());
+         iterator.remove();
      }
-       
-     for (String host : hosts_to_remove)
-       nextFetchTimes.remove(host);
    
      long target_time = now;
      try {
@@ -229,8 +227,8 @@ public class PageFetcher extends Configurable {
      now = System.currentTimeMillis();
      delay = Math.max(target_time - now, 0);
        
-     // Update next fetch time
-     nextFetchTimes.put(hostname, target_time + std_delay);
+     // Update next fetch time with some overhead taken into account
+     nextFetchTimes.put(hostname, target_time + std_delay + 100);
    }
    
    // Perform sleep unsynchronized
@@ -242,7 +240,24 @@ public class PageFetcher extends Configurable {
      {}
    }
   }
-
+  
+  protected void updateNextFetchTime(WebURL webUrl) {
+    long std_delay = config.getPolitenessDelay();
+    long target = System.currentTimeMillis() + std_delay;
+    String hostname = webUrl.getURL();
+    
+    try {
+      URI currentUrl = new URI(webUrl.getURL());
+      hostname = currentUrl.getHost();
+    } catch (URISyntaxException e) {
+      return;
+    }
+    
+    synchronized (nextFetchTimes) {
+      nextFetchTimes.put(hostname, target);
+    }
+  }
+  
   private void doAuthetication(List<AuthInfo> authInfos) {
     for (AuthInfo authInfo : authInfos) {
       if (authInfo.getAuthenticationType() == AuthInfo.AuthenticationType.BASIC_AUTHENTICATION) {
@@ -328,6 +343,9 @@ public class PageFetcher extends Configurable {
       CloseableHttpResponse response = httpClient.execute(request);
       fetchResult.setEntity(response.getEntity());
       fetchResult.setResponseHeaders(response.getAllHeaders());
+      
+      // Update the fetch time after the actual fetch
+      updateNextFetchTime(webUrl);
 
       // Setting HttpStatus
       int statusCode = response.getStatusLine().getStatusCode();
