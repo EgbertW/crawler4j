@@ -20,10 +20,11 @@ package edu.uci.ics.crawler4j.fetcher;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.net.URI;
@@ -38,7 +39,6 @@ import edu.uci.ics.crawler4j.crawler.authentication.NtAuthInfo;
 
 import org.apache.http.Header;
 import org.apache.http.HttpHost;
-import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
 import org.apache.http.auth.AuthScope;
@@ -84,11 +84,17 @@ import edu.uci.ics.crawler4j.url.WebURL;
 public class PageFetcher extends Configurable {
   protected static final Logger logger = LoggerFactory.getLogger(PageFetcher.class);
 
+  private static class HostRequests {
+    int outstanding = 0;
+    long nextFetchTime = System.currentTimeMillis();
+  }
+  
   protected PoolingHttpClientConnectionManager connectionManager;
   protected CloseableHttpClient httpClient;
   protected final Object mutex = new Object();
-  protected Map<String, Long> nextFetchTimes;
+  protected Map<String, HostRequests> nextFetchTimes;
   protected IdleConnectionMonitorThread connectionMonitorThread = null;
+  
 
   public PageFetcher(CrawlConfig config) {
     super(config);
@@ -143,7 +149,7 @@ public class PageFetcher extends Configurable {
       logger.debug("Working through Proxy: {}", proxy.getHostName());
     }
 
-    nextFetchTimes = new HashMap<String, Long>();
+    nextFetchTimes = new HashMap<String, HostRequests>();
     
     httpClient = clientBuilder.build();
     if ((config.getAuthInfos() != null) && !config.getAuthInfos().isEmpty()) {
@@ -169,11 +175,11 @@ public class PageFetcher extends Configurable {
         try {
           URI url = new URI(webUrl.getURL());
           String host = url.getHost();
-          Long target_time = nextFetchTimes.get(host);
+          HostRequests target_time = nextFetchTimes.get(host);
           if (target_time == null)
             return webUrl;
           
-          long delay = target_time - now;
+          long delay = target_time.nextFetchTime - now;
           // A negative time or 0 time is instant crawl
           if (delay <= 0)
               return webUrl;
@@ -197,66 +203,70 @@ public class PageFetcher extends Configurable {
     return min_url;
   }
   
-  protected void enforcePolitenessDelay(WebURL webUrl) {
-   long std_delay = config.getPolitenessDelay();
-   long delay = 0;
-   long now = System.currentTimeMillis();
-   String hostname = webUrl.getURL();
+  protected void enforcePolitenessDelay(URL url) {
+    if (url == null)
+      return;
    
-   synchronized (nextFetchTimes) {
-     // Remove pages visited more than the politeness delay ago
-     Iterator<Map.Entry<String, Long>> iterator = nextFetchTimes.entrySet().iterator();
-     while (iterator.hasNext()) {
-       Map.Entry<String, Long> entry = iterator.next();
-       if (entry.getValue() < now)
-         iterator.remove();
-     }
-   
-     long target_time = now;
-     try {
-       URI currentUrl = new URI(webUrl.getURL());
-       hostname = currentUrl.getHost();
-     }
-     catch (URISyntaxException e)
-     {}
-       
-     if (nextFetchTimes.containsKey(hostname))
-       target_time = nextFetchTimes.get(hostname);
-       
-     // Update now to incorporate time spent in the above processing
-     now = System.currentTimeMillis();
-     delay = Math.max(target_time - now, 0);
-       
-     // Update next fetch time with the configured timeouts taken into account.
-     // This is to prevent subsequent crawl threads to also crawl this host;
-     // the value will be updated to an accurate value after fetching
-     nextFetchTimes.put(hostname, target_time + std_delay + config.getConnectionTimeout() + config.getSocketTimeout());
-   }
-   
-   // Perform sleep unsynchronized
-   if (delay > 0) {
-     try {
-       Thread.sleep(delay);
-     }
-     catch (InterruptedException e)
-     {}
-   }
+    long std_delay = config.getPolitenessDelay();
+    String hostname = url.getHost();
+    long target;
+    synchronized (nextFetchTimes) {
+      // Remove pages visited more than the politeness delay ago
+      long now = System.currentTimeMillis();
+      Iterator<Map.Entry<String, HostRequests>> iterator = nextFetchTimes.entrySet().iterator();
+      while (iterator.hasNext()) {
+        Map.Entry<String, HostRequests> entry = iterator.next();
+        if (entry.getValue().nextFetchTime < now)
+          iterator.remove();
+      }
+      
+      // Find or create a HostRequests struct for this host
+      HostRequests host = nextFetchTimes.get(hostname);
+      if (host == null)
+        host = new HostRequests();
+      
+      ++host.outstanding;
+      target = host.nextFetchTime;
+      host.nextFetchTime = Math.max(target + std_delay, now + std_delay);
+      nextFetchTimes.put(hostname, host);
+    }
+     
+    long delay;
+    while ((delay = target - System.currentTimeMillis()) > 0)
+    {
+      if (delay > std_delay)
+        logger.info("Politeness delay is more than std_delay ({}ms): {}ms", std_delay, delay);
+      try {
+        Thread.sleep(delay);
+      } catch (InterruptedException e)
+      {}
+    }
   }
   
-  protected void updateNextFetchTime(WebURL webUrl) {
-    long std_delay = config.getPolitenessDelay();
-    long target = System.currentTimeMillis() + std_delay;
-    String hostname = webUrl.getURL();
-    
-    try {
-      URI currentUrl = new URI(webUrl.getURL());
-      hostname = currentUrl.getHost();
-    } catch (URISyntaxException e) {
+  /**
+   * Mark a request to a host as finished. If this was the last outstanding request
+   * for this host, the next fetch time is updated to now() + delay, otherwise
+   * it remains untouched.
+   * 
+   * @param url The parsed URL that has been requested
+   */
+  private void finishRequest(URL url) {
+    if (url == null)
       return;
-    }
     
+    String hostname = url.getHost();
     synchronized (nextFetchTimes) {
-      nextFetchTimes.put(hostname, target);
+      HostRequests host = nextFetchTimes.get(hostname);
+      if (host != null) {
+        if (host.outstanding < 1)
+          logger.error("ERROR: outstanding requests for host {} was 0, when calling finishRequest", url.getHost());;
+          
+        host.outstanding = (host.outstanding > 1 ? host.outstanding - 1: 0);
+        if (host.outstanding == 0)
+          host.nextFetchTime = System.currentTimeMillis() + config.getPolitenessDelay();
+          
+        nextFetchTimes.put(hostname, host);
+      }
     }
   }
   
@@ -336,19 +346,22 @@ public class PageFetcher extends Configurable {
     // Getting URL, setting headers & content
     PageFetchResult fetchResult = new PageFetchResult();
     String toFetchURL = webUrl.getURL();
+    URL parsedUrl = null;
+    try {
+      parsedUrl = new URL(toFetchURL);
+    } catch (MalformedURLException e)
+    {}
+    
     HttpUriRequest request = null;
     try {
       request = newHttpUriRequest(toFetchURL);
       // Applying Politeness delay
-      enforcePolitenessDelay(webUrl);
+      enforcePolitenessDelay(parsedUrl);
 
       CloseableHttpResponse response = httpClient.execute(request);
       fetchResult.setEntity(response.getEntity());
       fetchResult.setResponseHeaders(response.getAllHeaders());
       
-      // Update the fetch time after the actual fetch
-      updateNextFetchTime(webUrl);
-
       // Setting HttpStatus
       int statusCode = response.getStatusLine().getStatusCode();
 
@@ -398,6 +411,8 @@ public class PageFetcher extends Configurable {
       if ((fetchResult.getEntity() == null) && (request != null)) {
         request.abort();
       }
+      
+      finishRequest(parsedUrl);
     }
   }
 
