@@ -227,8 +227,10 @@ public class PageFetcher extends Configurable {
      now = System.currentTimeMillis();
      delay = Math.max(target_time - now, 0);
        
-     // Update next fetch time with some overhead taken into account
-     nextFetchTimes.put(hostname, target_time + std_delay + 100);
+     // Update next fetch time with the configured timeouts taken into account.
+     // This is to prevent subsequent crawl threads to also crawl this host;
+     // the value will be updated to an accurate value after fetching
+     nextFetchTimes.put(hostname, target_time + std_delay + config.getConnectionTimeout() + config.getSocketTimeout());
    }
    
    // Perform sleep unsynchronized
