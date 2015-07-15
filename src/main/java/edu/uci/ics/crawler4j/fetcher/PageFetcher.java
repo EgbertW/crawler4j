@@ -216,7 +216,8 @@ public class PageFetcher extends Configurable {
       Iterator<Map.Entry<String, HostRequests>> iterator = nextFetchTimes.entrySet().iterator();
       while (iterator.hasNext()) {
         Map.Entry<String, HostRequests> entry = iterator.next();
-        if (entry.getValue().nextFetchTime < now)
+        HostRequests host = entry.getValue();
+        if (host.nextFetchTime < now && host.outstanding == 0)
           iterator.remove();
       }
       
