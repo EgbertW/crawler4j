@@ -227,7 +227,13 @@ public class PageFetcher extends Configurable {
       
       ++host.outstanding;
       target = host.nextFetchTime;
-      host.nextFetchTime = Math.max(target + std_delay, now + std_delay);
+      
+      // The next fetch time is the current time + the politeness delay * the amount of
+      // outstanding requests (= threads that are waiting to request a page from this host).
+      // One additional std_delay is added in order to compensate for the response time of
+      // the host. As soon as all requests have finished, the nextFetchTime is set
+      // to the correct value.
+      host.nextFetchTime = now + (std_delay * (host.outstanding + 1));
       nextFetchTimes.put(hostname, host);
     }
      
