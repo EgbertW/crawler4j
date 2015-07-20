@@ -105,6 +105,7 @@ public class PageFetcher extends Configurable {
   
   protected long delay_total = 0;
   protected int delay_counter = 0;
+  protected long delay_last_time = 0;
   
   public PageFetcher(CrawlConfig config) {
     super(config);
@@ -275,7 +276,10 @@ public class PageFetcher extends Configurable {
       ++delay_counter;
       delay_total += (target - System.currentTimeMillis());
       double avg = Math.round(delay_total / delay_counter * 1000) / 1000.0;
-      logger.info("Average politeness sleep: {} (averaged over {} units)", avg, delay_counter);
+      if (delay_last_time < System.currentTimeMillis() - 5000) {
+        logger.info("Average politeness sleep: {} (averaged over {} units)", avg, delay_counter);
+        delay_last_time = System.currentTimeMillis();
+      }
     }
     
     long delay;
