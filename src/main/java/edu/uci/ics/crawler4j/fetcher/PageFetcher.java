@@ -189,6 +189,7 @@ public class PageFetcher extends Configurable {
             // Currently, no fetch time is available. This makes a good
             // candidate. Do add a new entry for HostRequests, because
             // the penalty needs to be stored to avoid selecting it again.
+            logger.info("Host {} does not have a record in nextFetchTimes - adding and returning URL {}", host, webUrl.getURL());
             target_time = new HostRequests();
             target_time.nextFetchTime = now;
             target_time.penalty = config.getPolitenessDelay();
@@ -205,6 +206,7 @@ public class PageFetcher extends Configurable {
           }
           
           if (min_delay == null || delay < min_delay) {
+            logger.info("Host {} has a delay of {} which is less than the current best {} of url {}", host, delay, min_delay, min_url.getURL());
             min_delay = delay;
             min_url = webUrl;
             best_req = target_time;
@@ -227,6 +229,7 @@ public class PageFetcher extends Configurable {
     assert(min_url != null);
     
     // Return the best if one was found
+    logger.info("Best URL with minimal delay is {} (delay: {})", min_url.getURL(), min_delay);
     return min_url;
   }
   
