@@ -179,7 +179,7 @@ public class Frontier extends Configurable {
         
         // Always attempt to keep a decent queue size
         if (current_queue.size() < (0.75 * target_size)) {
-          List<WebURL> urls = workQueues.shift(target_size);
+          List<WebURL> urls = workQueues.shift(target_size - current_queue.size());
           for (WebURL url : urls) {
             if (inProcessPages.put(url))
               current_queue.add(url);
