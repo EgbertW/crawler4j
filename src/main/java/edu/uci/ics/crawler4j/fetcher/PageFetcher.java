@@ -206,7 +206,8 @@ public class PageFetcher extends Configurable {
           }
           
           if (min_delay == null || delay < min_delay) {
-            logger.info("Host {} has a delay of {} which is less than the current best {} of url {}", host, delay, min_delay, min_url.getURL());
+            String BLARGH = min_url == null ? null : min_url.getURL();
+            logger.info("Host {} has a delay of {} which is less than the current best {} of url {}", host, delay, min_delay, BLARGH);
             min_delay = delay;
             min_url = webUrl;
             best_req = target_time;
