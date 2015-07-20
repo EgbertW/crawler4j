@@ -103,7 +103,9 @@ public class PageFetcher extends Configurable {
   protected Map<String, HostRequests> nextFetchTimes;
   protected IdleConnectionMonitorThread connectionMonitorThread = null;
   
-
+  protected long delay_total = 0;
+  protected int delay_counter = 0;
+  
   public PageFetcher(CrawlConfig config) {
     super(config);
 
@@ -180,7 +182,6 @@ public class PageFetcher extends Configurable {
     WebURL min_url = null;
     HostRequests best_req = null;
     synchronized (nextFetchTimes) {
-      logger.info("Selecting the best URL from a list of {} candidates", urls.size());
       for (WebURL webUrl : urls) {
         try {
           URI url = new URI(webUrl.getURL());
@@ -190,7 +191,6 @@ public class PageFetcher extends Configurable {
             // Currently, no fetch time is available. This makes a good
             // candidate. Do add a new entry for HostRequests, because
             // the penalty needs to be stored to avoid selecting it again.
-            logger.info("Host {} does not have a record in nextFetchTimes - adding and returning URL {}", host, webUrl.getURL());
             target_time = new HostRequests();
             target_time.nextFetchTime = now;
             target_time.penalty = config.getPolitenessDelay();
@@ -207,18 +207,13 @@ public class PageFetcher extends Configurable {
           }
           
           if (min_delay == null || delay < min_delay) {
-            String BLARGH = min_url == null ? null : min_url.getURL();
-            logger.info("Host {} has a delay of {} (of which penalty: {}) which is less than the current best {} of url {}", host, delay, target_time.penalty, min_delay, BLARGH);
             min_delay = delay;
             min_url = webUrl;
             best_req = target_time;
           }
-          else
-              logger.info("Host {} has a delay of {} (of which penalty: {}) - does not beat current best of {}", host, delay, target_time.penalty, min_delay);
         }
         catch (URISyntaxException e) {
           // Invalid URL, will not succeed, might as well get over with it
-          logger.info("URL {} is invalid - returning", webUrl.getURL());
           return webUrl;
         }
       }
@@ -234,7 +229,6 @@ public class PageFetcher extends Configurable {
     assert(min_url != null);
     
     // Return the best if one was found
-    logger.info("Best URL with minimal delay is {} (delay: {})", min_url.getURL(), min_delay);
     return min_url;
   }
   
@@ -276,11 +270,17 @@ public class PageFetcher extends Configurable {
       nextFetchTimes.put(hostname, host);
     }
      
+    synchronized (this)
+    {
+      ++delay_counter;
+      delay_total += (target - System.currentTimeMillis());
+      double avg = Math.round(delay_total / delay_counter * 1000) / 1000.0;
+      logger.info("Average politeness sleep: {} (averaged over {} units)", avg, delay_counter);
+    }
+    
     long delay;
     while ((delay = target - System.currentTimeMillis()) > 0)
     {
-      if (delay > std_delay)
-        logger.info("Politeness delay is more than std_delay ({}ms): {}ms", std_delay, delay);
       try {
         Thread.sleep(delay);
       } catch (InterruptedException e)
