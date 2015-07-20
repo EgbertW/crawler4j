@@ -214,6 +214,7 @@ public class PageFetcher extends Configurable {
         }
         catch (URISyntaxException e) {
           // Invalid URL, will not succeed, might as well get over with it
+          logger.info("URL {} is invalid - returning", webUrl.getURL());
           return webUrl;
         }
       }
