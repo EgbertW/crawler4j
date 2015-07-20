@@ -253,7 +253,7 @@ public class PageFetcher extends Configurable {
       // to the correct value.
       host.nextFetchTime = now + (std_delay * (host.outstanding + 1));
       
-      // Remove penalty from the host once it has been served its politess delay
+      // Remove penalty from the host once it has been served its politeness delay
       host.penalty = Math.max(0, host.penalty - std_delay);
       nextFetchTimes.put(hostname, host);
     }
