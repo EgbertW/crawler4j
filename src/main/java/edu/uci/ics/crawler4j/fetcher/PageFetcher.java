@@ -185,14 +185,24 @@ public class PageFetcher extends Configurable {
           URI url = new URI(webUrl.getURL());
           String host = url.getHost();
           HostRequests target_time = nextFetchTimes.get(host);
-          if (target_time == null)
+          if (target_time == null) {
+            // Currently, no fetch time is available. This makes a good
+            // candidate. Do add a new entry for HostRequests, because
+            // the penalty needs to be stored to avoid selecting it again.
+            target_time = new HostRequests();
+            target_time.nextFetchTime = now;
+            target_time.penalty = config.getPolitenessDelay();
+            nextFetchTimes.put(host, target_time);
             return webUrl;
+          }
           
           long delay = target_time.nextFetchTime + target_time.penalty - now;
           
           // A negative time or 0 time is instant crawl
-          if (delay <= 0)
-              return webUrl;
+          if (delay <= 0) {
+            target_time.penalty += config.getPolitenessDelay();
+            return webUrl;
+          }
           
           if (min_delay == null || delay < min_delay) {
             min_delay = delay;
@@ -234,7 +244,7 @@ public class PageFetcher extends Configurable {
       while (iterator.hasNext()) {
         Map.Entry<String, HostRequests> entry = iterator.next();
         HostRequests host = entry.getValue();
-        if (host.nextFetchTime < now && host.outstanding == 0)
+        if (host.nextFetchTime < (now - std_delay) && host.outstanding == 0)
           iterator.remove();
       }
       
@@ -253,7 +263,7 @@ public class PageFetcher extends Configurable {
       // to the correct value.
       host.nextFetchTime = now + (std_delay * (host.outstanding + 1));
       
-      // Remove penalty from the host once it has been served its politeness delay
+      // Remove penalty from the host once it is serving its politeness delay
       host.penalty = Math.max(0, host.penalty - std_delay);
       nextFetchTimes.put(hostname, host);
     }
