@@ -170,6 +170,7 @@ public class Frontier extends Configurable {
   }
   
   public WebURL getNextURL(PageFetcher pageFetcher) {
+    int target_size = config.getFrontierQueueTargetSize();
     while (true)
     {
       synchronized (mutex) {
@@ -177,8 +178,8 @@ public class Frontier extends Configurable {
           return null;
         
         // Always attempt to keep a decent queue size
-        if (current_queue.size() < 25) {
-          List<WebURL> urls = workQueues.shift(100);
+        if (current_queue.size() < 0.25 * target_size) {
+          List<WebURL> urls = workQueues.shift(target_size);
           for (WebURL url : urls) {
             if (inProcessPages.put(url))
               current_queue.add(url);

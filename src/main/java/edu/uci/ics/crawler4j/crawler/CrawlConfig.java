@@ -133,6 +133,16 @@ public class CrawlConfig {
    * https://publicsuffix.org/list/effective_tld_names.dat
    */
   private boolean onlineTldListUpdate = false;
+  
+  /**
+   * The target size for the queue used in the frontier. This determines both
+   * the number of URLs obtained and the threshold for doing so. Once the size
+   * of the frontier queue falls below 25% of this value, it will request
+   * additional URLs from the WorkQueue maintaining the entire URL queue.
+   * Setting this to a higher value can help to optimize performance because the frontier
+   * has more URLs to choose from while selecting the next URL to fetch.
+   */
+  private int frontierQueueTargetSize = 200;
 
   /**
    * Should the crawler stop running when the queue is empty?
@@ -440,6 +450,16 @@ public class CrawlConfig {
    */
   public void setOnlineTldListUpdate(boolean online) {
     onlineTldListUpdate = online;
+  }
+
+  public void setFrontierQueueTargetSize(int target)
+  {
+    frontierQueueTargetSize = target;
+  }
+  
+  public int getFrontierQueueTargetSize()
+  {
+    return frontierQueueTargetSize;
   }
 
   public String getProxyHost() {
