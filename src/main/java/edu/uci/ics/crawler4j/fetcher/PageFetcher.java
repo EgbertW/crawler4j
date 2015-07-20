@@ -180,6 +180,7 @@ public class PageFetcher extends Configurable {
     WebURL min_url = null;
     HostRequests best_req = null;
     synchronized (nextFetchTimes) {
+      logger.info("Selecting the best URL from a list of {} candidates", urls.size());
       for (WebURL webUrl : urls) {
         try {
           URI url = new URI(webUrl.getURL());
