@@ -208,11 +208,13 @@ public class PageFetcher extends Configurable {
           
           if (min_delay == null || delay < min_delay) {
             String BLARGH = min_url == null ? null : min_url.getURL();
-            logger.info("Host {} has a delay of {} which is less than the current best {} of url {}", host, delay, min_delay, BLARGH);
+            logger.info("Host {} has a delay of {} (of which penalty: {}) which is less than the current best {} of url {}", host, delay, target_time.penalty, min_delay, BLARGH);
             min_delay = delay;
             min_url = webUrl;
             best_req = target_time;
           }
+          else
+              logger.info("Host {} has a delay of {} (of which penalty: {}) - does not beat current best of {}", host, delay, target_time.penalty, min_delay);
         }
         catch (URISyntaxException e) {
           // Invalid URL, will not succeed, might as well get over with it
