@@ -85,8 +85,16 @@ public class PageFetcher extends Configurable {
   protected static final Logger logger = LoggerFactory.getLogger(PageFetcher.class);
 
   private static class HostRequests {
+    /** The number of outstanding requests */
     int outstanding = 0;
+    /** The next time a request to this host may be made */
     long nextFetchTime = System.currentTimeMillis();
+    /** 
+     * The penalty to take into account while selecting the best URL to fetch.
+     * This value is excluded from the actual waiting time and is increased
+     * when it has been selected using getBestURL.
+     */
+    long penalty = 0;
   }
   
   protected PoolingHttpClientConnectionManager connectionManager;
@@ -170,6 +178,7 @@ public class PageFetcher extends Configurable {
     long now = System.currentTimeMillis();
     Long min_delay = null;
     WebURL min_url = null;
+    HostRequests best_req = null;
     synchronized (nextFetchTimes) {
       for (WebURL webUrl : urls) {
         try {
@@ -179,7 +188,8 @@ public class PageFetcher extends Configurable {
           if (target_time == null)
             return webUrl;
           
-          long delay = target_time.nextFetchTime - now;
+          long delay = target_time.nextFetchTime + target_time.penalty - now;
+          
           // A negative time or 0 time is instant crawl
           if (delay <= 0)
               return webUrl;
@@ -187,6 +197,7 @@ public class PageFetcher extends Configurable {
           if (min_delay == null || delay < min_delay) {
             min_delay = delay;
             min_url = webUrl;
+            best_req = target_time;
           }
         }
         catch (URISyntaxException e) {
@@ -194,6 +205,12 @@ public class PageFetcher extends Configurable {
           return webUrl;
         }
       }
+      
+      // Add the politeness delay to this host already as it's probably going to
+      // be crawled which makes it less attractive for a following request to also
+      // crawl from the same host
+      if (best_req != null)
+          best_req.penalty += config.getPolitenessDelay();
     }
     
     // There should be a 'best' URL always at this point
@@ -235,6 +252,9 @@ public class PageFetcher extends Configurable {
       // the host. As soon as all requests have finished, the nextFetchTime is set
       // to the correct value.
       host.nextFetchTime = now + (std_delay * (host.outstanding + 1));
+      
+      // Remove penalty from the host once it has been served its politess delay
+      host.penalty = Math.max(0, host.penalty - std_delay);
       nextFetchTimes.put(hostname, host);
     }
      
