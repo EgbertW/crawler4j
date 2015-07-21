@@ -99,8 +99,15 @@ public class RobotstxtServer {
    * @param url The URL for which to get the directives
    * @return HostDirectives object for the host, or null if no directives are available
    */
-  public HostDirectives getDirectives(URL url) {
-    String host = getHost(url);
+  public HostDirectives getDirectives(WebURL weburl) {
+    String host;
+    try {
+      URL url = new URL(weburl.getURL());
+      host = getHost(url);
+    } catch (MalformedURLException e) {
+      return null;
+    }
+    
     synchronized (host2directivesCache) {
       return host2directivesCache.get(host);
     }
