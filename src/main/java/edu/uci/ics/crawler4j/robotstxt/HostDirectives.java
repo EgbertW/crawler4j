@@ -17,6 +17,8 @@
 
 package edu.uci.ics.crawler4j.robotstxt;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.TreeSet;
 
 /**
@@ -83,6 +85,40 @@ public class HostDirectives {
    */
   public boolean disallows(String path) {
     return checkAccess(path) == DISALLOWED;
+  }
+  
+  /**
+   * Get all sitemaps defined for the current UA
+   * 
+   * @param strict Whether to return only the sitemaps for the current UA, or all sitemaps
+   *               defined in robots.txt.
+   * @return A set of sitemaps defined in robots.txt
+   */
+  public Set<String> getSitemaps(boolean strict) {
+    Set<String> maps = new HashSet<String>();
+    String myUA = config.getUserAgentName();
+    for (UserAgentDirectives ua : rules) {
+      if (ua.match(myUA) > 0)
+        maps.addAll(ua.getSitemap());
+      if (strict)
+        return maps;
+    }
+    return maps;
+  }
+  
+  /**
+   * Get the value for crawl-delay, if it is defined in robots.txt
+   * 
+   * @return A value for crawl-delay if specified, otherwise null
+   */
+  public Double getSitemaps() {
+    String myUA = config.getUserAgentName();
+    for (UserAgentDirectives ua : rules) {
+      if (ua.match(myUA) <= 0)
+        break;
+      return ua.getCrawlDelay();
+    }
+    return null;
   }
   
   /**
