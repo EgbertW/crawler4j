@@ -111,7 +111,7 @@ public class HostDirectives {
    * 
    * @return A value for crawl-delay if specified, otherwise null
    */
-  public Double getSitemaps() {
+  public Double getCrawlDelay() {
     String myUA = config.getUserAgentName();
     for (UserAgentDirectives ua : rules) {
       if (ua.match(myUA) <= 0)
