@@ -18,6 +18,7 @@
 package edu.uci.ics.crawler4j.robotstxt;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -98,8 +99,11 @@ public class HostDirectives {
     Set<String> maps = new HashSet<String>();
     String myUA = config.getUserAgentName();
     for (UserAgentDirectives ua : rules) {
-      if (ua.match(myUA) > 0)
-        maps.addAll(ua.getSitemap());
+      if (ua.match(myUA) > 0) {
+        List<String> ua_maps = ua.getSitemap();
+        if (ua_maps != null)
+          maps.addAll(ua_maps);
+      }
       if (strict)
         return maps;
     }
