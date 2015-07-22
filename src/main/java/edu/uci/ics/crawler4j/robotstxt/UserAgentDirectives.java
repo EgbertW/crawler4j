@@ -190,7 +190,7 @@ public class UserAgentDirectives {
       this.preferred_host = value;
     } else if (rule.equals("allow")) {
       this.path_rules.add(new PathRule(HostDirectives.ALLOWED, value));
-    } else if (rule.equals("disallow")) {
+    } else if (rule.equals("disallow") || rule.equals("noindex")) {
       this.path_rules.add(new PathRule(HostDirectives.DISALLOWED, value));
     } else {
       logger.error("Invalid key in robots.txt passed to UserAgentRules: {}", rule);
