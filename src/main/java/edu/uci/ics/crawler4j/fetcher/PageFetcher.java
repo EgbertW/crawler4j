@@ -136,7 +136,7 @@ public class PageFetcher extends Configurable {
     }
 
     Registry<ConnectionSocketFactory> connRegistry = connRegistryBuilder.build();
-    connectionManager = new PoolingHttpClientConnectionManager(connRegistry);
+    connectionManager = new SniPoolingHttpClientConnectionManager(connRegistry);
     connectionManager.setMaxTotal(config.getMaxTotalConnections());
     connectionManager.setDefaultMaxPerRoute(config.getMaxConnectionsPerHost());
 
