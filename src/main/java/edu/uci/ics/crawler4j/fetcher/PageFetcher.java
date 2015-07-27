@@ -57,6 +57,7 @@ import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.conn.ssl.TrustStrategy;
 import org.apache.http.impl.client.BasicCredentialsProvider;
@@ -116,8 +117,7 @@ public class PageFetcher extends Configurable {
                      .setConnectTimeout(config.getConnectionTimeout()).build();
 
     RegistryBuilder<ConnectionSocketFactory> connRegistryBuilder = RegistryBuilder.create();
-    connRegistryBuilder.register("http", PlainConnectionSocketFactory.INSTANCE);
-    if (config.isIncludeHttpsPages()) {
+    connRegistryBuilder.register("http", PlainConnectionSocketFactory.INSTANCE);    if (config.isIncludeHttpsPages()) {
       try { // Fixing: https://code.google.com/p/crawler4j/issues/detail?id=174
         // By always trusting the ssl certificate
         SSLContext sslContext = SSLContexts.custom().loadTrustMaterial(null, new TrustStrategy() {
@@ -127,7 +127,7 @@ public class PageFetcher extends Configurable {
           }
         }).build();
         SSLConnectionSocketFactory sslsf =
-            new SSLConnectionSocketFactory(sslContext, SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+            new SniSSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
         connRegistryBuilder.register("https", sslsf);
       } catch (Exception e) {
         logger.warn("Exception thrown while trying to register https");
