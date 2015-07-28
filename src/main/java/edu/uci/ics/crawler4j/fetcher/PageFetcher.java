@@ -330,10 +330,10 @@ public class PageFetcher extends Configurable {
     long delay;
     while ((delay = target - System.currentTimeMillis()) > 0)
     {
-      if (delay >= 300)
+      if (delay >= 300000)
       {
           logger.info("Sleeping 5 minutes for politeness delay for host {} - {} seconds remain afterwards", hostname, delay / 1000.0);
-          delay = 300;
+          delay = 300000;
       }
       try {
         Thread.sleep(delay);
