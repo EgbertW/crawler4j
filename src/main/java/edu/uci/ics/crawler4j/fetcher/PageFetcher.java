@@ -90,6 +90,8 @@ public class PageFetcher extends Configurable {
     int outstanding = 0;
     /** The next time a request to this host may be made */
     long nextFetchTime = System.currentTimeMillis();
+    /** The politeness delay used for this host */
+    long delay = 200;
     /** 
      * The penalty to take into account while selecting the best URL to fetch.
      * This value is excluded from the actual waiting time and is increased
@@ -173,13 +175,33 @@ public class PageFetcher extends Configurable {
     connectionMonitorThread.start();
   }
   
-  public void addDelay(String host, long timeout) {
-      synchronized (nextFetchTimes) {
-          HostRequests req = nextFetchTimes.get(host);
-          if (req == null)
-              nextFetchTimes.put(host, req = new HostRequests());
-          req.nextFetchTime += timeout;
-      }
+  /**
+   * Set the politeness delay for a specific host.
+   * 
+   * @param host The host for which to set a delay
+   * @param timeout The timeout to set for this host
+   */
+  public void setPolitenessDelay(String host, long timeout) {
+    synchronized (nextFetchTimes) {
+      HostRequests req = nextFetchTimes.get(host);
+      if (req == null)
+        nextFetchTimes.put(host, req = new HostRequests());
+      req.nextFetchTime += timeout;
+      req.delay = config.getPolitenessDelay();
+    }
+  }
+  
+  public long getPolitenessDelay(String host) {
+    synchronized (nextFetchTimes) {
+      HostRequests req = nextFetchTimes.get(host);
+      if (req == null)
+        return config.getPolitenessDelay();
+      return req.delay;
+    }
+  }
+  
+  public long getDefaultPolitenessDelay() {
+    return config.getPolitenessDelay();
   }
   
   /**
@@ -212,7 +234,7 @@ public class PageFetcher extends Configurable {
             // the penalty needs to be stored to avoid selecting it again.
             target_time = new HostRequests();
             target_time.nextFetchTime = now;
-            target_time.penalty = config.getPolitenessDelay();
+            target_time.penalty = target_time.delay;
             nextFetchTimes.put(host, target_time);
             return webUrl;
           }
@@ -221,7 +243,7 @@ public class PageFetcher extends Configurable {
           
           // A negative time or 0 time is instant crawl
           if (delay <= 0) {
-            target_time.penalty += config.getPolitenessDelay();
+            target_time.penalty += target_time.delay;
             return webUrl;
           }
           
@@ -245,7 +267,7 @@ public class PageFetcher extends Configurable {
       // be crawled which makes it less attractive for a following request to also
       // crawl from the same host
       if (best_req != null)
-          best_req.penalty += config.getPolitenessDelay();
+          best_req.penalty += best_req.delay;
     }
     
     // There should be a 'best' URL always at this point
@@ -259,7 +281,6 @@ public class PageFetcher extends Configurable {
     if (url == null)
       return;
    
-    long std_delay = config.getPolitenessDelay();
     String hostname = url.getHost();
     long target;
     synchronized (nextFetchTimes) {
@@ -269,14 +290,16 @@ public class PageFetcher extends Configurable {
       while (iterator.hasNext()) {
         Map.Entry<String, HostRequests> entry = iterator.next();
         HostRequests host = entry.getValue();
-        if (host.nextFetchTime < (now - std_delay) && host.outstanding == 0)
+        if (host.nextFetchTime < (now - host.delay) && host.outstanding == 0)
           iterator.remove();
       }
       
       // Find or create a HostRequests struct for this host
       HostRequests host = nextFetchTimes.get(hostname);
-      if (host == null)
+      if (host == null) {
         host = new HostRequests();
+        host.delay = config.getPolitenessDelay();
+      }
       
       ++host.outstanding;
       target = host.nextFetchTime;
@@ -286,10 +309,10 @@ public class PageFetcher extends Configurable {
       // One additional std_delay is added in order to compensate for the response time of
       // the host. As soon as all requests have finished, the nextFetchTime is set
       // to the correct value.
-      host.nextFetchTime = now + (std_delay * (host.outstanding + 1));
+      host.nextFetchTime = now + (host.delay * (host.outstanding + 1));
       
       // Remove penalty from the host once it is serving its politeness delay
-      host.penalty = Math.max(0, host.penalty - std_delay);
+      host.penalty = Math.max(0, host.penalty - host.delay);
       nextFetchTimes.put(hostname, host);
     }
      
@@ -339,7 +362,7 @@ public class PageFetcher extends Configurable {
           
         host.outstanding = (host.outstanding > 1 ? host.outstanding - 1: 0);
         if (host.outstanding == 0)
-          host.nextFetchTime = System.currentTimeMillis() + config.getPolitenessDelay();
+          host.nextFetchTime = System.currentTimeMillis() + host.delay;
           
         nextFetchTimes.put(hostname, host);
       }
