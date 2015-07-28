@@ -186,7 +186,6 @@ public class PageFetcher extends Configurable {
       HostRequests req = nextFetchTimes.get(host);
       if (req == null)
         nextFetchTimes.put(host, req = new HostRequests());
-      req.nextFetchTime += timeout;
       req.delay = timeout;
     }
   }
