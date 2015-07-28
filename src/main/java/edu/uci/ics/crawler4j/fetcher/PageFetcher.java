@@ -173,6 +173,15 @@ public class PageFetcher extends Configurable {
     connectionMonitorThread.start();
   }
   
+  public void addDelay(String host, long timeout) {
+      synchronized (nextFetchTimes) {
+          HostRequests req = nextFetchTimes.get(host);
+          if (req == null)
+              nextFetchTimes.put(host, req = new HostRequests());
+          req.nextFetchTime += timeout;
+      }
+  }
+  
   public WebURL getBestURL(Collection<WebURL> urls) {
     // Return null if there's nothing to choose from
     if (urls.size() == 0)
