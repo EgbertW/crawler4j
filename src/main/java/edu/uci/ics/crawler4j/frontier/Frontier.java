@@ -171,15 +171,15 @@ public class Frontier extends Configurable {
   
   public WebURL getNextURL(PageFetcher pageFetcher) {
     int target_size = config.getFrontierQueueTargetSize();
-    while (true)
-    {
+    while (true) {
+      long sleep = 0;
       synchronized (mutex) {
         if (isFinished)
           return null;
         
         // Always attempt to keep a decent queue size
         if (current_queue.size() < (0.9 * target_size)) {
-          List<WebURL> urls = workQueues.shift(target_size - current_queue.size());
+          List<WebURL> urls = workQueues.shift((int)(1.1 * target_size) - current_queue.size());
           for (WebURL url : urls) {
             if (inProcessPages.put(url))
               current_queue.add(url);
@@ -188,18 +188,25 @@ public class Frontier extends Configurable {
         
         if (!current_queue.isEmpty())
         {
-          WebURL url = pageFetcher.getBestURL(current_queue);
-          current_queue.remove(url);
-          return url;
+          WebURL url = pageFetcher.getBestURL(current_queue, config.getPolitenessDelay());
+          if (url != null) {
+            current_queue.remove(url);
+            return url;
+          }
+          
+          // No URL can be crawled soon enough, just wait around to see
+          // if any better candidate results from current crawling efforts
+          sleep = config.getPolitenessDelay();
         }
       }
       
       // Nothing available, wait for more
       synchronized (waitingList) {
         try {
-          waitingList.wait();
+          waitingList.wait(sleep);
         } catch (InterruptedException e)
         {}
+        sleep = 0;
       }
     }
   }

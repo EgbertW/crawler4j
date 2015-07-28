@@ -182,7 +182,16 @@ public class PageFetcher extends Configurable {
       }
   }
   
-  public WebURL getBestURL(Collection<WebURL> urls) {
+  /**
+   * Find the URL with the lowest nextFetchTime, to optimally utilize the
+   * available threads while respecting the politeness delay.
+   * 
+   * @param urls A collection of URLs from which one will be selected
+   * @param max The maximum number of milliseconds that the URL should be in
+   *            the future. If no URL matches this criterion, null will be returned
+   * @return The best URL, or null if no URL has a politeness delay shorter than max
+   */
+  public WebURL getBestURL(Collection<WebURL> urls, long max) {
     // Return null if there's nothing to choose from
     if (urls.size() == 0)
       return null;
@@ -227,6 +236,10 @@ public class PageFetcher extends Configurable {
           return webUrl;
         }
       }
+      
+      // Do not return any URL when the max is exceeded
+      if (min_delay != null && min_delay > max)
+          return null;
       
       // Add the politeness delay to this host already as it's probably going to
       // be crawled which makes it less attractive for a following request to also
