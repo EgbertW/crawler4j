@@ -173,17 +173,26 @@ public class Frontier extends Configurable {
     int target_size = config.getFrontierQueueTargetSize();
     while (true) {
       long sleep = 0;
+      int burst = 0;
       synchronized (mutex) {
         if (isFinished)
           return null;
         
         // Always attempt to keep a decent queue size
-        if (current_queue.size() < (0.9 * target_size)) {
-          List<WebURL> urls = workQueues.shift((int)(1.1 * target_size) - current_queue.size());
+        if (current_queue.size() < (0.9 * target_size) || burst > 0) {
+          int num_to_get = Math.max(burst,  (int)(1.1 * target_size) - current_queue.size());
+          List<WebURL> urls = workQueues.shift(num_to_get);
           for (WebURL url : urls) {
             if (inProcessPages.put(url))
               current_queue.add(url);
           }
+          if (burst > 0) {
+            if (urls.size() > 0)
+              logger.info("Adding {} more URLs to the work queue because current timeouts are too long", urls.size());
+            else
+              logger.info("Politeness delays are long, but no alternative websites are available from the queue");
+          }
+          burst = 0;
         }
         
         if (!current_queue.isEmpty())
@@ -197,6 +206,7 @@ public class Frontier extends Configurable {
           // No URL can be crawled soon enough, just wait around to see
           // if any better candidate results from current crawling efforts
           sleep = config.getPolitenessDelay();
+          burst = (int)(0.25 * target_size);
         }
       }
       
