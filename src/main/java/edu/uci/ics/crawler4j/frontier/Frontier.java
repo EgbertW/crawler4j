@@ -171,9 +171,9 @@ public class Frontier extends Configurable {
   
   public WebURL getNextURL(PageFetcher pageFetcher) {
     int target_size = config.getFrontierQueueTargetSize();
+    int burst = 0;
     while (true) {
       long sleep = 0;
-      int burst = 0;
       synchronized (mutex) {
         if (isFinished)
           return null;
