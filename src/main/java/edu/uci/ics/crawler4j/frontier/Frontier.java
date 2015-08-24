@@ -205,7 +205,7 @@ public class Frontier extends Configurable {
           
           // No URL can be crawled soon enough, just wait around to see
           // if any better candidate results from current crawling efforts
-          sleep = config.getPolitenessDelay();
+          sleep = 100;
           burst = (int)(0.25 * target_size);
           logger.info("GetNextURL: no URL available that can be crawled any time soon, waiting {} ms and trying again with a burst fetch of {} pages", sleep, burst);
         }
