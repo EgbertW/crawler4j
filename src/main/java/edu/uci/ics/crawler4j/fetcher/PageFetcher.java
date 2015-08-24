@@ -315,10 +315,15 @@ public class PageFetcher extends Configurable {
       nextFetchTimes.put(hostname, host);
     }
      
+    long delay;
     synchronized (this)
     {
       ++delay_counter;
-      delay_total += (target - System.currentTimeMillis());
+      
+      delay = target - System.currentTimeMillis();
+      if (delay < 0)
+          delay = 0;
+      delay_total += delay;
       double avg = Math.round(delay_total / delay_counter * 1000) / 1000.0;
       if (delay_last_time < System.currentTimeMillis() - 5000) {
         logger.info("Average politeness sleep: {} (averaged over {} units)", avg, delay_counter);
@@ -326,7 +331,6 @@ public class PageFetcher extends Configurable {
       }
     }
     
-    long delay;
     while ((delay = target - System.currentTimeMillis()) > 0)
     {
       if (delay >= 300000)
