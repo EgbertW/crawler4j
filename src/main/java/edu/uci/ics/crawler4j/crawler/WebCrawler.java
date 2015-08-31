@@ -413,8 +413,9 @@ public class WebCrawler implements Runnable {
         } else { // All other http codes other than 3xx & 200
           String description = EnglishReasonPhraseCatalog.INSTANCE
               .getReason(fetchResult.getStatusCode(), Locale.ENGLISH); // Finds the status reason for all known statuses
-          String contentType =
-              fetchResult.getEntity() == null ? "" : fetchResult.getEntity().getContentType().getValue();
+          String contentType = "";
+          if (fetchResult.getEntity() != null && fetchResult.getEntity().getContentType() != null)
+              contentType = fetchResult.getEntity().getContentType().getValue();
           onUnexpectedStatusCode(curURL.getURL(), fetchResult.getStatusCode(), contentType, description);
         }
 
