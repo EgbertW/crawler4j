@@ -187,10 +187,12 @@ public class Frontier extends Configurable {
               current_queue.add(url);
           }
           if (burst > 0) {
-            if (urls.size() > 0)
+            if (urls.size() > 0) {
               logger.info("Adding {} more URLs to the work queue because current timeouts are too long", urls.size());
-            else
-              logger.info("Politeness delays are long, but no alternative websites are available from the queue");
+            } else {
+              logger.trace("Politeness delays are long, but no alternative websites are available from the queue");
+              sleep += config.getPolitenessDelay();
+            }
           }
           burst = 0;
         }
@@ -205,9 +207,9 @@ public class Frontier extends Configurable {
           
           // No URL can be crawled soon enough, just wait around to see
           // if any better candidate results from current crawling efforts
-          sleep = 100;
+          sleep += 100;
           burst = (int)(0.25 * target_size);
-          logger.info("GetNextURL: no URL available that can be crawled any time soon, waiting {} ms and trying again with a burst fetch of {} pages", sleep, burst);
+          logger.debug("GetNextURL: no URL available that can be crawled any time soon, waiting {} ms and trying again with a burst fetch of {} pages", sleep, burst);
         }
       }
       
