@@ -178,6 +178,24 @@ public class Frontier extends Configurable {
         if (isFinished)
           return null;
         
+        if (current_queue.size() != inProcessPages.getLength())
+        {
+            logger.error("WARNING! Current_queue size (={}) is not equal to inProcessPages.lenth() (={})", current_queue.size(), inProcessPages.getLength());
+            
+            int pos = 0;
+            logger.info("Current-queue dump:");
+            for (WebURL url : current_queue)
+                logger.info("{}) URL: {}", ++pos, url.getURL());
+            logger.info("----");
+            logger.info("inProcessPages dump: ");
+            List<WebURL> l = inProcessPages.getDump();
+            pos = 0;
+            for (WebURL url : l)
+                logger.info("{}) URL: {}", ++pos, url.getURL());
+            logger.info("----");
+                
+        }
+        
         // Always attempt to keep a decent queue size
         if (current_queue.size() < (0.9 * target_size) || burst > 0) {
           int num_to_get = Math.max(burst,  (int)(1.1 * target_size) - current_queue.size());
@@ -216,7 +234,11 @@ public class Frontier extends Configurable {
       // Nothing available, wait for more
       synchronized (waitingList) {
         try {
+          if (Math.abs(sleep) > 1000)
+              logger.error("Waiting for quite an uncommon time in the frontier: {} ms", sleep);
           waitingList.wait(sleep);
+          if (Math.abs(sleep) > 1000)
+              logger.error("Waited for quite an uncommon time in the frontier: {} ms", sleep);
         } catch (InterruptedException e)
         {}
         sleep = 0;

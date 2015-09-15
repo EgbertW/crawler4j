@@ -244,4 +244,28 @@ public class WorkQueues {
   public void close() {
     urlsDB.close();
   }
+  
+  public List<WebURL> getDump()
+  {
+      List<WebURL> list = new ArrayList<WebURL>();
+      synchronized (mutex) {
+          DatabaseEntry key = new DatabaseEntry();
+          DatabaseEntry value = new DatabaseEntry();
+          Transaction txn = beginTransaction();
+          try (Cursor cursor = openCursor(txn)) {
+            OperationStatus result = cursor.getFirst(key, value, null);
+            while (result == OperationStatus.SUCCESS) {
+              byte [] data = value.getData();
+              cursor.delete();
+              if (data.length > 0) {
+                WebURL url = webURLBinding.entryToObject(value);
+                list.add(url);
+             }
+             result = cursor.getNext(key, value, null);
+           }
+         }
+      }
+      
+      return list;
+  }
 }
