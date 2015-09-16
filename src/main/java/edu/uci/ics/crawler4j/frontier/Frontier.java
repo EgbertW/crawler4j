@@ -178,9 +178,9 @@ public class Frontier extends Configurable {
         if (isFinished)
           return null;
         
-        if (current_queue.size() != inProcessPages.getLength())
+        if (current_queue.size() > inProcessPages.getLength())
         {
-            logger.error("WARNING! Current_queue size (={}) is not equal to inProcessPages.lenth() (={})", current_queue.size(), inProcessPages.getLength());
+            logger.error("ERROR! Current_queue size (={}) is more than inProcessPages.length() (={})", current_queue.size(), inProcessPages.getLength());
             
             int pos = 0;
             logger.info("Current-queue dump:");
