@@ -88,7 +88,7 @@ public class RobotstxtParser {
         } else {
           if (!error_header_printed)
           {
-            logger.info("Error while processing {}", url);
+            logger.info("Error while processing robots.txt: {}", url);
             error_header_printed = true;
           }
           logger.info("Unrecognized rule: {}", rule);
@@ -96,7 +96,7 @@ public class RobotstxtParser {
       } else {
         if (!error_header_printed)
         {
-          logger.info("Error while processing {}", url);
+          logger.info("Error while processing robots.txt: {}", url);
           error_header_printed = true;
         }
         logger.debug("Unrecognized line: {}", line);

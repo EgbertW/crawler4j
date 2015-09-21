@@ -133,8 +133,15 @@ public class RobotstxtServer {
             status == HttpStatus.SC_TEMPORARY_REDIRECT || 
             status == 308) && // SC_PERMANENT_REDIRECT RFC7538
             fetchResult.getMovedToUrl() != null) {
-          robotsTxtUrl.setURL(fetchResult.getMovedToUrl());
+            
           fetchResult.discardContentIfNotConsumed();
+          String new_url = fetchResult.getMovedToUrl();
+          if (new_url.endsWith("robots.txt")) {
+            robotsTxtUrl.setURL(new_url);
+          } else {
+            logger.info("While fetching robots.txt from {}, redirected to non-robots.txt URL: {}. Assuming no robots.txt for this domain", fetchResult.getFetchedUrl(), new_url);
+            break;
+          }
         }
         else // Done on all other occasions
           break;
