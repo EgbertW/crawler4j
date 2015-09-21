@@ -58,6 +58,7 @@ public class Frontier extends Configurable {
   protected final Object waitingList = new Object();
 
   protected boolean isFinished = false;
+  protected long lastSleepNotification = 0;
 
   protected long scheduledPages;
 
@@ -202,29 +203,12 @@ public class Frontier extends Configurable {
   public WebURL getNextURL(PageFetcher pageFetcher) {
     int target_size = config.getFrontierQueueTargetSize();
     int burst = 0;
+    
     while (true) {
       long sleep = 0;
       synchronized (mutex) {
         if (isFinished)
           return null;
-        
-        if (current_queue.size() > inProcessPages.getLength())
-        {
-            logger.error("ERROR! Current_queue size (={}) is more than inProcessPages.length() (={})", current_queue.size(), inProcessPages.getLength());
-            
-            int pos = 0;
-            logger.info("Current-queue dump:");
-            for (WebURL url : current_queue)
-                logger.info("{}) URL: {}", ++pos, url.getURL());
-            logger.info("----");
-            logger.info("inProcessPages dump: ");
-            List<WebURL> l = inProcessPages.getDump();
-            pos = 0;
-            for (WebURL url : l)
-                logger.info("{}) URL: {}", ++pos, url.getURL());
-            logger.info("----");
-                
-        }
         
         // Always attempt to keep a decent queue size
         if (current_queue.size() < (0.9 * target_size) || burst > 0) {
@@ -234,14 +218,14 @@ public class Frontier extends Configurable {
             if (inProcessPages.put(url))
             {
               current_queue.add(url);
-              logger.info("Moved URL {} with docid: {} from WorkQueue to InProcessPages queue", url.getURL(), url.getDocid());
             }
           }
           if (burst > 0) {
-            if (urls.size() > 0) {
-              logger.info("Adding {} more URLs to the work queue because current timeouts are too long", urls.size());
-            } else {
-              logger.trace("Politeness delays are long, but no alternative websites are available from the queue");
+            if (urls.size() == 0) {
+              if (System.currentTimeMillis() - lastSleepNotification < 2000) {
+                logger.trace("Politeness delays are long, but no alternative websites are available from the queue");
+                lastSleepNotification = System.currentTimeMillis();
+              }
               sleep += config.getPolitenessDelay();
             }
           }
@@ -258,9 +242,8 @@ public class Frontier extends Configurable {
           
           // No URL can be crawled soon enough, just wait around to see
           // if any better candidate results from current crawling efforts
-          sleep += 100;
+          sleep += 200;
           burst = (int)(0.25 * target_size);
-          logger.debug("GetNextURL: no URL available that can be crawled any time soon, waiting {} ms and trying again with a burst fetch of {} pages", sleep, burst);
         }
       }
       
