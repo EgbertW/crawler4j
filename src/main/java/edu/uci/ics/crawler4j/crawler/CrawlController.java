@@ -36,13 +36,6 @@ import edu.uci.ics.crawler4j.url.URLCanonicalizer;
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.IO;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * The controller that manages a crawling session. This class creates the
  * crawler threads and monitors their progress.
@@ -407,34 +400,20 @@ public class CrawlController extends Configurable {
       logger.error("Invalid seed URL: {}", pageUrl);
       return -1;
     }
-    if (docId < 0) {
-      docId = docIdServer.getDocId(canonicalUrl);
-      if (docId > 0) {
-        logger.trace("This URL is already seen.");
-        return -1;
-      }
-      docId = docIdServer.getNewDocID(canonicalUrl);
-    } else {
-      try {
-        docIdServer.addUrlAndDocId(canonicalUrl, docId);
-      } catch (Exception e) {
-        logger.error("Could not add seed: {}", e.getMessage());
-      }
-    }
-
     WebURL webUrl = new WebURL();
     webUrl.setURL(canonicalUrl);
     webUrl.setSeedDocid(docId);
-    webUrl.setDocid(docId);
     webUrl.setDepth((short) 0);
     webUrl.setPriority(priority);
+    if (docId >= 0)
+      webUrl.setDocid(docId);
     if (!config.isIgnoreRobotsTxtForSeed() && !robotstxtServer.allows(webUrl)) {
-      logger.warn("Robots.txt does not allow this seed: {}",
-                  pageUrl); // using the WARN level here, as the user specifically asked to add this seed
+      // using the WARN level here, as the user specifically asked to add this seed
+      logger.warn("Robots.txt does not allow this seed: {}", pageUrl);
     } else {
       frontier.schedule(webUrl);
     }
-    return docId;
+    return webUrl.getDocid();
   }
 
   /**

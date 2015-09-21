@@ -386,24 +386,16 @@ public class WebCrawler implements Runnable {
             }
             page.setRedirectedToUrl(movedToUrl);
 
-            int newDocId = docIdServer.getDocId(movedToUrl);
-            if (newDocId > 0) {
-              throw new RedirectException(Level.DEBUG, "Redirect page: " + curURL + " is already seen");
-            }
-
             WebURL webURL = new WebURL();
             webURL.setURL(movedToUrl);
             webURL.setParentDocid(curURL.getParentDocid());
             webURL.setParentUrl(curURL.getParentUrl());
             webURL.setSeedDocid(curURL.getSeedDocid());
             webURL.setDepth(curURL.getDepth());
-            webURL.setDocid(-1);
             webURL.setAnchor(curURL.getAnchor());
             webURL.setPriority(curURL.getPriority());
             if (shouldVisit(page, webURL)) {
               if (robotstxtServer.allows(webURL)) {
-                webURL.setDocid(docIdServer.getNewDocID(movedToUrl));
-                logger.info("Redirecting to URL {} with docid: {}", webURL.getURL(), webURL.getDocid());
                 frontier.schedule(webURL);
               } else {
                 logger.debug("Not visiting: {} as per the server's \"robots.txt\" policy", webURL.getURL());
@@ -452,18 +444,12 @@ public class WebCrawler implements Runnable {
           webURL.setSeedDocid(curURL.getSeedDocid());
           // Do increase the depth to avoid redirection loops
           webURL.setDepth((short)(curURL.getDepth() + 1));
-          webURL.setDocid(-1);
           webURL.setAnchor(curURL.getAnchor());
           webURL.setPriority(curURL.getPriority());
           
           if (shouldVisit(page, webURL)) {
             if (robotstxtServer.allows(webURL)) {
-              int docid = docIdServer.getNewUnseenDocID(page.redirectedToUrl);
-              if (docid >= 0) {
-                webURL.setDocid(docid);
-                logger.info("Scheduling URL {} with docid: {} from rel canonical redirect", webURL.getURL(), webURL.getDocid());
-                frontier.schedule(webURL);
-              }
+              frontier.schedule(webURL);
             } else {
               logger.debug("Not visiting: {} as per the server's \"robots.txt\" policy", webURL.getURL());
             }
@@ -479,26 +465,17 @@ public class WebCrawler implements Runnable {
           webURL.setParentDocid(curURL.getDocid());
           webURL.setParentUrl(curURL.getURL());
           webURL.setSeedDocid(curURL.getSeedDocid());
-          int newdocid = docIdServer.getDocId(webURL.getURL());
-          if (newdocid > 0) {
-            // This is not the first time that this Url is visited. So, we set the depth to a negative number.
-            webURL.setDepth((short) -1);
-            webURL.setDocid(newdocid);
-          } else {
-            webURL.setDocid(-1);
-            webURL.setDepth((short) (curURL.getDepth() + 1));
-            if ((maxCrawlDepth == -1) || (curURL.getDepth() < maxCrawlDepth)) {
-              if (shouldVisit(page, webURL)) {
-                if (robotstxtServer.allows(webURL)) {
-                  webURL.setDocid(docIdServer.getNewDocID(webURL.getURL()));
-                  logger.info("Adding outgoing url to toSchedule list: URL {} with docid: {}", webURL.getURL(), webURL.getDocid());
-                  toSchedule.add(webURL);
-                } else {
-                  logger.debug("Not visiting: {} as per the server's \"robots.txt\" policy", webURL.getURL());
-                }
+          webURL.setDepth((short) (curURL.getDepth() + 1));
+          if ((maxCrawlDepth == -1) || (curURL.getDepth() < maxCrawlDepth)) {
+            if (shouldVisit(page, webURL)) {
+              if (robotstxtServer.allows(webURL)) {
+                logger.info("Adding outgoing url to toSchedule list: URL {} with docid: {}", webURL.getURL(), webURL.getDocid());
+                toSchedule.add(webURL);
               } else {
-                logger.debug("Not visiting: {} as per your \"shouldVisit\" policy", webURL.getURL());
+                logger.debug("Not visiting: {} as per the server's \"robots.txt\" policy", webURL.getURL());
               }
+            } else {
+              logger.debug("Not visiting: {} as per your \"shouldVisit\" policy", webURL.getURL());
             }
           }
         }

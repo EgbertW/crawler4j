@@ -34,7 +34,7 @@ public class WebURL implements Serializable, Comparable<WebURL> {
   @PrimaryKey
   private String url;
 
-  private int docid;
+  private int docid = -1;
   private int parentDocid;
   private int seedDocid;
   private String parentUrl;

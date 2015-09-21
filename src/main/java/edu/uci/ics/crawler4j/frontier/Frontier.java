@@ -17,6 +17,7 @@
 
 package edu.uci.ics.crawler4j.frontier;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -93,51 +94,76 @@ public class Frontier extends Configurable {
     }
   }
 
+  /**
+   * Schedule a list of URLs at once, trying to minimize synchronization overhead.
+   * 
+   * @param urls The list of URLs to schedule
+   */
   public void scheduleAll(List<WebURL> urls) {
     int maxPagesToFetch = config.getMaxPagesToFetch();
+    Iterator<WebURL> it = urls.iterator();
     synchronized (mutex) {
-      int newScheduledPage = 0;
-      for (WebURL url : urls) {
-        if ((maxPagesToFetch > 0) && ((scheduledPages + newScheduledPage) >= maxPagesToFetch)) {
-          break;
-        }
-
-        try {
-          workQueues.put(url);
-          newScheduledPage++;
-        } catch (DatabaseException e) {
-          logger.error("Error while putting the url in the work queue", e);
-        }
+      while (it.hasNext() && (maxPagesToFetch < 0 || scheduledPages <= maxPagesToFetch)) {
+        WebURL url = it.next();
+        doSchedule(url);
       }
-      if (newScheduledPage > 0) {
-        scheduledPages += newScheduledPage;
-        counters.increment(Counters.ReservedCounterNames.SCHEDULED_PAGES, newScheduledPage);
-      }
-      synchronized (waitingList) {
-        waitingList.notifyAll();
-      }
+      counters.setValue(Counters.ReservedCounterNames.SCHEDULED_PAGES, scheduledPages);
+    }
+    synchronized (waitingList) {
+      waitingList.notifyAll();
     }
   }
 
-  public void schedule(WebURL url) {
-    logger.info("Now scheduling URL {} with docid: {} in th WorkQueue", url.getURL(), url.getDocid());
+  /**
+   * Private method that actually puts a new URL in the queue. It checks
+   * the DocID. If it is -1, it is assumed that this is a newly discovered URL 
+   * that should be crawled. If it has already been seen, it is skipped.
+   * 
+   * @param url The WebURL to schedule
+   * @return True if the URL was added to the queue, false otherwise.
+   */
+  private boolean doSchedule(WebURL url) {
     int maxPagesToFetch = config.getMaxPagesToFetch();
+    if (maxPagesToFetch >= 0 && scheduledPages >= maxPagesToFetch)
+      return false;
+      
+    if (url.getDocid() == -1) {
+      int docid = this.docIdServer.getNewUnseenDocID(url.getURL());
+      if (docid == -1)
+        return false;
+      url.setDocid(docid);
+    }
+      
+    try {
+      logger.info("Now scheduling URL {} with docid: {} in the WorkQueue", url.getURL(), url.getDocid());
+      logger.info("Trace", new Throwable());
+      workQueues.put(url);
+      ++scheduledPages;
+    } catch (DatabaseException e) {
+      logger.error("Error while putting the url in the work queue", e);
+      return false;
+    }
+    return true;
+  }
+  
+  /**
+   * Schedule a WebURL. It will use doSchedule to schedule it and update the counter values.
+   * 
+   * @param url The WebURL to schedule.
+   * @see doSchedule(WebURL url)
+   */
+  public boolean schedule(WebURL url) {
+    boolean scheduled = false;
     synchronized (mutex) {
-      try {
-        if (maxPagesToFetch < 0 || scheduledPages < maxPagesToFetch) {
-          workQueues.put(url);
-          scheduledPages++;
-          counters.increment(Counters.ReservedCounterNames.SCHEDULED_PAGES);
-        }
-      } catch (DatabaseException e) {
-        logger.error("Error while putting the url in the work queue", e);
-      }
+      if (scheduled = doSchedule(url))
+        counters.increment(Counters.ReservedCounterNames.SCHEDULED_PAGES);
     }
     
     // Wake up threads
     synchronized (waitingList) {
       waitingList.notifyAll();
     }
+    return scheduled;
   }
   
   /**
