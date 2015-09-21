@@ -127,11 +127,16 @@ public class Frontier extends Configurable {
     if (maxPagesToFetch >= 0 && scheduledPages >= maxPagesToFetch)
       return false;
       
-    if (url.getDocid() == -1) {
+    if (url.getDocid() < 0) {
       int docid = this.docIdServer.getNewUnseenDocID(url.getURL());
       if (docid == -1)
         return false;
       url.setDocid(docid);
+    }
+    
+    // A URL without a seed doc ID is a seed of itself.
+    if (url.getSeedDocid() < 0) {
+      url.setSeedDocid(url.getDocid());
     }
       
     try {

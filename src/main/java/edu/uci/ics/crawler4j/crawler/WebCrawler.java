@@ -295,6 +295,7 @@ public class WebCrawler implements Runnable {
         WebURL backup = new WebURL(assignedURL);
           
         try {
+            logger.info("Calling handleUrlBeforeProcess for URL: {} with docid: {}", assignedURL.getURL(), assignedURL.getDocid());
           WebURL fetchURL = handleUrlBeforeProcess(assignedURL);
           if (fetchURL != null)
             processPage(fetchURL);
