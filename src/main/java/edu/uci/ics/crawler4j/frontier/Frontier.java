@@ -120,6 +120,7 @@ public class Frontier extends Configurable {
   }
 
   public void schedule(WebURL url) {
+    logger.info("Now scheduling URL {} with docid: {} in th WorkQueue", url.getURL(), url.getDocid());
     int maxPagesToFetch = config.getMaxPagesToFetch();
     synchronized (mutex) {
       try {
@@ -202,7 +203,10 @@ public class Frontier extends Configurable {
           List<WebURL> urls = workQueues.shift(num_to_get);
           for (WebURL url : urls) {
             if (inProcessPages.put(url))
+            {
               current_queue.add(url);
+              logger.info("Moved URL {} with docid: {} from WorkQueue to InProcessPages queue", url.getURL(), url.getDocid());
+            }
           }
           if (burst > 0) {
             if (urls.size() > 0) {
