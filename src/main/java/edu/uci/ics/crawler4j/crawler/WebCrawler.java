@@ -470,7 +470,6 @@ public class WebCrawler implements Runnable {
           if ((maxCrawlDepth == -1) || (curURL.getDepth() < maxCrawlDepth)) {
             if (shouldVisit(page, webURL)) {
               if (robotstxtServer.allows(webURL)) {
-                logger.info("Adding outgoing url to toSchedule list: URL {} with docid: {}", webURL.getURL(), webURL.getDocid());
                 toSchedule.add(webURL);
               } else {
                 logger.debug("Not visiting: {} as per the server's \"robots.txt\" policy", webURL.getURL());
@@ -480,7 +479,6 @@ public class WebCrawler implements Runnable {
             }
           }
         }
-        logger.info("Scheduling a batch of outgoing URLs");
         frontier.scheduleAll(toSchedule);
 
         visit(page);
