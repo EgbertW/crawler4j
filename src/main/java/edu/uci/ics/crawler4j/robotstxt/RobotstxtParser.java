@@ -35,7 +35,7 @@ public class RobotstxtParser {
   private static final Pattern RULE_PATTERN = Pattern.compile("(?i)^([A-Za-z\\-]+):(.*)");
   private static final HashSet<String> VALID_RULES = new HashSet<String>(Arrays.asList("allow", "disallow", "noindex", "user-agent", "crawl-delay", "host", "sitemap"));  
 
-  public static HostDirectives parse(String content, RobotstxtConfig config) {
+  public static HostDirectives parse(String url, String content, RobotstxtConfig config) {
     HostDirectives directives = new HostDirectives(config);
 
     StringTokenizer st = new StringTokenizer(content, "\n\r");
@@ -58,6 +58,7 @@ public class RobotstxtParser {
         continue;
       }
       
+      boolean error_header_printed = false;
       Matcher m = RULE_PATTERN.matcher(line);
       if (m.matches()) {
         String rule = m.group(1).toLowerCase();
@@ -85,10 +86,20 @@ public class RobotstxtParser {
             ua_directives.add(rule,  value);
           }
         } else {
-          logger.info("Unrecognized rule in robots.txt: {}", rule);
+          if (!error_header_printed)
+          {
+            logger.info("Error while processing {}", url);
+            error_header_printed = true;
+          }
+          logger.info("Unrecognized rule: {}", rule);
         }
       } else {
-        logger.debug("Unrecognized line in robots.txt: {}", line);
+        if (!error_header_printed)
+        {
+          logger.info("Error while processing {}", url);
+          error_header_printed = true;
+        }
+        logger.debug("Unrecognized line: {}", line);
       }
     }
 

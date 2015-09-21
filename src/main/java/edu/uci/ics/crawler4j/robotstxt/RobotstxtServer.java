@@ -152,7 +152,7 @@ public class RobotstxtServer {
               } else {
                 content = new String(page.getContentData(), page.getContentCharset());
               }
-              directives = RobotstxtParser.parse(content, config);
+              directives = RobotstxtParser.parse(robotsTxtUrl.getURL(), content, config);
             } else {
               logger.info("No data received for robots.txt retrieved from URL: {}", robotsTxtUrl.getURL());
             }
@@ -161,7 +161,7 @@ public class RobotstxtServer {
           }
         } else if (page.getContentType().contains("html")) { // TODO This one should be upgraded to remove all html tags
           String content = new String(page.getContentData());
-          directives = RobotstxtParser.parse(content, config);
+          directives = RobotstxtParser.parse(robotsTxtUrl.getURL(), content, config);
         } else {
           logger.warn("Can't read this robots.txt: {}  as it is not written in plain text, contentType: {}",
                       robotsTxtUrl.getURL(), page.getContentType());
