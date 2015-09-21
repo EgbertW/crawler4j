@@ -285,7 +285,6 @@ public class WebCrawler implements Runnable {
       if (assignedURL == null) {
         isWaitingForNewURLs = true;
         assignedURL = frontier.getNextURL(pageFetcher);
-        logger.info("I got assigned URL {} with docid: {}", assignedURL.getURL(), assignedURL.getDocid());
         isWaitingForNewURLs = false;
       }
       if (assignedURL != null) {
@@ -295,7 +294,6 @@ public class WebCrawler implements Runnable {
         WebURL backup = new WebURL(assignedURL);
           
         try {
-            logger.info("Calling handleUrlBeforeProcess for URL: {} with docid: {}", assignedURL.getURL(), assignedURL.getDocid());
           WebURL fetchURL = handleUrlBeforeProcess(assignedURL);
           if (fetchURL != null)
             processPage(fetchURL);

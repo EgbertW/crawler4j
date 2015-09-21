@@ -140,7 +140,6 @@ public class Frontier extends Configurable {
     }
       
     try {
-      logger.info("Now scheduling URL {} with docid: {} in the WorkQueue", url.getURL(), url.getDocid());
       workQueues.put(url);
       ++scheduledPages;
     } catch (DatabaseException e) {
