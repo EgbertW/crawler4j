@@ -17,6 +17,7 @@
 
 package edu.uci.ics.crawler4j.frontier;
 
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -68,6 +69,9 @@ public class Frontier extends Configurable {
   
   /** An ordered list of the top of the work queue, sorted by priority and docid */
   protected Set<WebURL> current_queue = new TreeSet<WebURL>();
+  
+  /** A list of seeds that have finished, and so their offspring should be skipped */
+  protected Set<Integer> finished_seeds = new HashSet<Integer>();
 
   public Frontier(Environment env, CrawlConfig config, DocIDServer docIdServer) {
     super(config);
@@ -200,6 +204,21 @@ public class Frontier extends Configurable {
     }
   }
   
+  /**
+   * Add a seed docid that has finished. This is used to determine
+   * whether upcoming URLs still need to be crawled. This could be
+   * used to abort a seed when it has finished to waste as little time
+   * on it as possible.
+   * 
+   * If the seed doc ID has no offspring in the queue, nothing happens.
+   * 
+   * @param seed_doc_id The docid of the seed URL to mark as finished.
+   */
+  public void setSeedFinished(int seed_doc_id) {
+    if (numOffspring(seed_doc_id) > 0)
+      finished_seeds.add(seed_doc_id);
+  }
+  
   public WebURL getNextURL(PageFetcher pageFetcher) {
     int target_size = config.getFrontierQueueTargetSize();
     int burst = 0;
@@ -230,6 +249,18 @@ public class Frontier extends Configurable {
             }
           }
           burst = 0;
+        }
+        
+        // Skip URLs at the front of the queue that have already finished
+        Iterator<WebURL> iter = current_queue.iterator();
+        while (iter.hasNext())
+        {
+            WebURL url = iter.next();
+            if (!finished_seeds.contains(url.getSeedDocid()))
+                break;
+            // Seed is finished, so we skip it. It needs to be removed, though.
+            setProcessed(url);
+            iter.remove();
         }
         
         if (!current_queue.isEmpty())
@@ -275,7 +306,10 @@ public class Frontier extends Configurable {
       if (!inProcessPages.removeURL(webURL)) {
         logger.warn("Could not remove: {} from list of processed pages.", webURL.getURL());
       }
-      return numOffspring(webURL.getSeedDocid()) == 0;
+      boolean isLast = numOffspring(webURL.getSeedDocid()) == 0;
+      if (isLast)
+          finished_seeds.remove(webURL.getSeedDocid());
+      return isLast;
     }
   }
 
