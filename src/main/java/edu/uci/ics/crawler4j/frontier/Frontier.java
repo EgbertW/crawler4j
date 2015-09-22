@@ -215,8 +215,10 @@ public class Frontier extends Configurable {
    * @param seed_doc_id The docid of the seed URL to mark as finished.
    */
   public void setSeedFinished(int seed_doc_id) {
-    if (numOffspring(seed_doc_id) > 0)
-      finished_seeds.add(seed_doc_id);
+    synchronized (mutex) {
+      if (numOffspring(seed_doc_id) > 0)
+        finished_seeds.add(seed_doc_id);
+    }
   }
   
   public WebURL getNextURL(PageFetcher pageFetcher) {
