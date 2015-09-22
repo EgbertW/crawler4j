@@ -253,6 +253,7 @@ public class Frontier extends Configurable {
         
         // Skip URLs at the front of the queue that have already finished
         Iterator<WebURL> iter = current_queue.iterator();
+        int num_removed = 0;
         while (iter.hasNext())
         {
             WebURL url = iter.next();
@@ -261,7 +262,10 @@ public class Frontier extends Configurable {
             // Seed is finished, so we skip it. It needs to be removed, though.
             setProcessed(url);
             iter.remove();
+            ++num_removed;
         }
+        if (num_removed > 0)
+            logger.info("Removed {} elements from the crawl queue because their seed was marked as finished", num_removed);
         
         if (!current_queue.isEmpty())
         {
