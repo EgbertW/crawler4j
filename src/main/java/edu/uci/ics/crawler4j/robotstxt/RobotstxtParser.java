@@ -99,7 +99,7 @@ public class RobotstxtParser {
           logger.info("Error while processing robots.txt: {}", url);
           error_header_printed = true;
         }
-        logger.debug("Unrecognized line: {}", line);
+        logger.info("Unrecognized line: {}", line);
       }
     }
 
