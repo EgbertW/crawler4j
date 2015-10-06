@@ -43,6 +43,7 @@ public class RobotstxtParser {
     Set<String> userAgents = new HashSet<String>();
     UserAgentDirectives ua_directives = null;
     
+    boolean error_header_printed = false;
     while (st.hasMoreTokens()) {
       String line = st.nextToken();
 
@@ -58,7 +59,6 @@ public class RobotstxtParser {
         continue;
       }
       
-      boolean error_header_printed = false;
       Matcher m = RULE_PATTERN.matcher(line);
       if (m.matches()) {
         String rule = m.group(1).toLowerCase();
