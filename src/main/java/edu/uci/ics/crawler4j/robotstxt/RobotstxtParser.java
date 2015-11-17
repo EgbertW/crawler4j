@@ -52,6 +52,16 @@ public class RobotstxtParser {
       if (commentIndex > -1) {
         line = line.substring(0, commentIndex);
       }
+      
+      String lc = line.toLowerCase();
+      if (lc.contains("<!doctype") || lc.contains("<head") || lc.contains("<html") || lc.contains("<body") || lc.contains("<?xml")) {
+        // Prevent attempting to parse HTML documents. Some misconfigured webservers
+        // serve robots.txt with content-type: text/html, but it still contains plain text.
+        // So check for existence of some nearly-always-present HTML tags to find out
+        // it is actually HTML, and if so, return
+        logger.info("Robots.txt obtained from {} seems to be HTML, aborting parse", url);
+        return directives;
+      }
 
       // remove any html markup
       line = line.replaceAll("<[^>]+>", "").trim();
