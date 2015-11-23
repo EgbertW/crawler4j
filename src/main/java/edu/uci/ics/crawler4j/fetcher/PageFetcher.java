@@ -109,6 +109,7 @@ public class PageFetcher extends Configurable {
   protected long delay_total = 0;
   protected int delay_counter = 0;
   protected long delay_last_time = 0;
+  protected long delay_exceeded_last_time = 0;
   
   public PageFetcher(CrawlConfig config) {
     super(config);
@@ -260,7 +261,15 @@ public class PageFetcher extends Configurable {
       
       // Do not return any URL when the max is exceeded
       if (min_delay != null && min_delay > max)
+      {
+          long cur = System.currentTimeMillis();
+          if (cur > delay_exceeded_last_time + 30000)
+          {
+              logger.info("Best next-fetch-time of {}ms exceeds max-next-fetch-time of {}ms", min_delay, max);
+              delay_exceeded_last_time = cur;
+          }
           return null;
+      }
       
       // Add the politeness delay to this host already as it's probably going to
       // be crawled which makes it less attractive for a following request to also

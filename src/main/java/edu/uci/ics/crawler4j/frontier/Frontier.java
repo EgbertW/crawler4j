@@ -222,6 +222,7 @@ public class Frontier extends Configurable {
   }
   
   public WebURL getNextURL(PageFetcher pageFetcher) {
+    long last_msg = 0;
     int target_size = config.getFrontierQueueTargetSize();
     int burst = 0;
     
@@ -277,10 +278,26 @@ public class Frontier extends Configurable {
             return url;
           }
           
+          long cur = System.currentTimeMillis();
+          if (cur > last_msg + 30000)
+          {
+              logger.info("Work queue has size {} but timeouts are long. Waiting for more URLs to come in");
+              last_msg = cur;
+          }
+          
           // No URL can be crawled soon enough, just wait around to see
           // if any better candidate results from current crawling efforts
           sleep += 200;
           burst = (int)(0.25 * target_size);
+        }
+        else
+        {
+            long cur = System.currentTimeMillis();
+            if (cur > last_msg + 30000)
+            {
+                logger.info("Work queue is empty. Waiting for more URLs to come in");
+                last_msg = cur;
+            }
         }
       }
       
