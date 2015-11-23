@@ -45,6 +45,7 @@ public class WebURL implements Serializable, Comparable<WebURL> {
   private String anchor;
   private byte priority = 0;
   private String tag;
+  private boolean seedEnded = false;
 
   /** Copy constructor */
   public WebURL(WebURL rhs)
@@ -61,6 +62,7 @@ public class WebURL implements Serializable, Comparable<WebURL> {
     this.anchor = rhs.anchor;
     this.priority = rhs.priority;
     this.tag = rhs.tag;
+    this.seedEnded = rhs.seedEnded;
   }
 
   public WebURL()
@@ -142,6 +144,21 @@ public class WebURL implements Serializable, Comparable<WebURL> {
       this.seedDocid = seedDocid;
   }
 
+  /**
+   * Return whether the seed has ended. This is used to signal to the
+   * WebCrawler that handleSeedEnd should be called on this seed, but
+   * that the page itself should not be crawled anymore.
+   * 
+   * @return Whether the seed has ended
+   */
+  public boolean getSeedEnded() {
+      return seedEnded;
+  }
+  
+  public void setSeedEnded(boolean seedEnded) {
+      this.seedEnded = seedEnded;
+  }
+  
   /**
    * @return
    *      url of the parent page. The parent page is the page in which

@@ -262,7 +262,18 @@ public class Frontier extends Configurable {
             WebURL url = iter.next();
             if (!finished_seeds.contains(url.getSeedDocid()))
                 break;
+            
             // Seed is finished, so we skip it. It needs to be removed, though.
+            if (numOffspring(url.getSeedDocid()) == 1)
+            {
+                // This is the very last element in the queue. We need to
+                // return it to the WebCrawler in order to make sure that
+                // handleSeedEnd can be called.
+                current_queue.remove(url);
+                url.setSeedEnded(true);
+                return url;
+            }
+            
             setProcessed(url);
             iter.remove();
             ++num_removed;
@@ -330,6 +341,7 @@ public class Frontier extends Configurable {
         logger.warn("Could not remove: {} from list of processed pages.", webURL.getURL());
       }
       boolean isLast = numOffspring(webURL.getSeedDocid()) == 0;
+      logger.error("Set processed URL {} from seed [[{}]] - last: {}", webURL.getURL(), webURL.getSeedDocid(), isLast);
       if (isLast)
           finished_seeds.remove(webURL.getSeedDocid());
       return isLast;

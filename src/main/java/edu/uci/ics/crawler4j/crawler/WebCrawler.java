@@ -295,7 +295,7 @@ public class WebCrawler implements Runnable {
           
         try {
           WebURL fetchURL = handleUrlBeforeProcess(assignedURL);
-          if (fetchURL != null)
+          if (fetchURL != null && !fetchURL.getSeedEnded())
             processPage(fetchURL);
         } catch (OutOfMemoryError e) {
           logger.error("OutOfMemory occured while processing URL {}. Shutting down.", assignedURL.getURL());
