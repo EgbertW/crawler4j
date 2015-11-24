@@ -297,7 +297,7 @@ public class Frontier extends Configurable {
           long cur = System.currentTimeMillis();
           if (cur > last_msg + 30000)
           {
-              logger.info("Work queue has size {} but timeouts are long. Waiting for more URLs to come in");
+              logger.info("Work queue has size {} but timeouts are long. Waiting for more URLs to come in", current_queue.size());
               last_msg = cur;
           }
           
