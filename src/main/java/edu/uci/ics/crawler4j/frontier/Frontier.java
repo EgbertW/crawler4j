@@ -320,11 +320,7 @@ public class Frontier extends Configurable {
       // Nothing available, wait for more
       synchronized (waitingList) {
         try {
-          if (Math.abs(sleep) > 1000)
-              logger.error("Waiting for quite an uncommon time in the frontier: {} ms", sleep);
           waitingList.wait(sleep);
-          if (Math.abs(sleep) > 1000)
-              logger.error("Waited for quite an uncommon time in the frontier: {} ms", sleep);
         } catch (InterruptedException e)
         {}
         sleep = 0;
