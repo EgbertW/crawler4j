@@ -26,6 +26,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import javax.net.ssl.SSLException;
+
 import org.apache.http.HttpStatus;
 import org.apache.http.NoHttpResponseException;
 import org.slf4j.Logger;
@@ -125,8 +127,9 @@ public class RobotstxtServer {
       for (int redir = 0; redir < 3; ++redir) {
         try {
           fetchResult = pageFetcher.fetchPage(robotsTxtUrl);
-        } catch (javax.net.ssl.SSLHandshakeException e) {
-          logger.info("SSL Exception while requesting robots.txt from {}", url.toString());
+        } catch (SSLException e) {
+          logger.info("SSL Exception while requesting robots.txt from {}: ", url.toString(), e.getMessage());
+          logger.trace("SSL Exception stacktrace", e);
           break;
         }
         int status = fetchResult.getStatusCode();
