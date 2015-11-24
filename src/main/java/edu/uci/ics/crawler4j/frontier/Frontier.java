@@ -128,10 +128,9 @@ public class Frontier extends Configurable {
    * @return True if the URL was added to the queue, false otherwise.
    */
   private boolean doSchedule(WebURL url) {
-    if (url.getURL().startsWith("ftp://"))
-    {
-        logger.warn("Not scheduling FTP-url {} as the crawler doesn't support them", url.getURL());
-        return false;
+    if (!url.isHttp()) {
+      logger.warn("Not scheduling URL {} - Protocol {} not supported", url.getURL(), url.getProtocol());
+      return false;
     }
     
     int maxPagesToFetch = config.getMaxPagesToFetch();

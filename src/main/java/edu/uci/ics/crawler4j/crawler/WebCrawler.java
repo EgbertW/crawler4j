@@ -397,12 +397,15 @@ public class WebCrawler implements Runnable {
             webURL.setDepth(curURL.getDepth());
             webURL.setAnchor(curURL.getAnchor());
             webURL.setPriority(curURL.getPriority());
-            if (shouldVisit(page, webURL)) {
+            boolean isHttp = webURL.isHttp();
+            if (isHttp && shouldVisit(page, webURL)) {
               if (robotstxtServer.allows(webURL)) {
                 frontier.schedule(webURL);
               } else {
                 logger.debug("Not visiting: {} as per the server's \"robots.txt\" policy", webURL.getURL());
               }
+            } else if (!isHttp) {
+              logger.debug("Not visiting: {} - Protocol {} not supported", webURL.getURL(), webURL.getProtocol());
             } else {
               logger.debug("Not visiting: {} as per your \"shouldVisit\" policy", webURL.getURL());
             }
@@ -450,12 +453,15 @@ public class WebCrawler implements Runnable {
           webURL.setAnchor(curURL.getAnchor());
           webURL.setPriority(curURL.getPriority());
           
-          if (shouldVisit(page, webURL)) {
+          boolean isHttp = webURL.isHttp();
+          if (isHttp && shouldVisit(page, webURL)) {
             if (robotstxtServer.allows(webURL)) {
               frontier.schedule(webURL);
             } else {
               logger.debug("Not visiting: {} as per the server's \"robots.txt\" policy", webURL.getURL());
             }
+          } else if (!isHttp) {
+            logger.debug("Not visiting: {} - Protocol {} not supported", webURL.getURL(), webURL.getProtocol());
           } else {
             logger.debug("Not visiting: {} as per your \"shouldVisit\" policy", webURL.getURL());
           }
@@ -470,12 +476,15 @@ public class WebCrawler implements Runnable {
           webURL.setSeedDocid(curURL.getSeedDocid());
           webURL.setDepth((short) (curURL.getDepth() + 1));
           if ((maxCrawlDepth == -1) || (curURL.getDepth() < maxCrawlDepth)) {
-            if (shouldVisit(page, webURL)) {
+            boolean isHttp = webURL.isHttp();
+            if (isHttp && shouldVisit(page, webURL)) {
               if (robotstxtServer.allows(webURL)) {
                 toSchedule.add(webURL);
               } else {
                 logger.debug("Not visiting: {} as per the server's \"robots.txt\" policy", webURL.getURL());
               }
+            } else if (isHttp) {
+              logger.debug("Not visiting: {} - Protocol {} not supported", webURL.getURL(), webURL.getProtocol());
             } else {
               logger.debug("Not visiting: {} as per your \"shouldVisit\" policy", webURL.getURL());
             }

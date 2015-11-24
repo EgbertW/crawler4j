@@ -68,6 +68,16 @@ public class WebURL implements Serializable, Comparable<WebURL> {
   public WebURL()
   {}
 
+  public String getProtocol() {
+    int pos = url.indexOf(":");
+    return url.substring(0, pos).toLowerCase();
+  }
+  
+  public boolean isHttp() {
+    String protocol = getProtocol();
+    return protocol.equals("http") || protocol.equals("https");
+  }
+  
   /**
    * @return unique document id assigned to this Url.
    */
