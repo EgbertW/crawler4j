@@ -123,7 +123,12 @@ public class RobotstxtServer {
     PageFetchResult fetchResult = null;
     try {
       for (int redir = 0; redir < 3; ++redir) {
-        fetchResult = pageFetcher.fetchPage(robotsTxtUrl);
+        try {
+          fetchResult = pageFetcher.fetchPage(robotsTxtUrl);
+        } catch (javax.net.ssl.SSLHandshakeException e) {
+          logger.info("SSL Exception while requesting robots.txt from {}", url.toString());
+          break;
+        }
         int status = fetchResult.getStatusCode();
         // Follow redirects up to 3 levels
         if ((status == HttpStatus.SC_MULTIPLE_CHOICES ||
@@ -147,7 +152,7 @@ public class RobotstxtServer {
           break;
       }
       
-      if (fetchResult.getStatusCode() == HttpStatus.SC_OK) {
+      if (fetchResult != null && fetchResult.getStatusCode() == HttpStatus.SC_OK) {
         Page page = new Page(robotsTxtUrl);
         fetchResult.fetchContent(page, 16384);
         if (Util.hasPlainTextContent(page.getContentType())) {
@@ -173,7 +178,7 @@ public class RobotstxtServer {
           logger.warn("Can't read this robots.txt: {}  as it is not written in plain text, contentType: {}",
                       robotsTxtUrl.getURL(), page.getContentType());
         }
-      } else {
+      } else if (fetchResult != null) {
         logger.debug("Can't read this robots.txt: {}  as it's status code is {}", robotsTxtUrl.getURL(),
                      fetchResult.getStatusCode());
       }
