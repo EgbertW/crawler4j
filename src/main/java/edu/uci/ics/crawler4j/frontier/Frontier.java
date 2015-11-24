@@ -341,7 +341,6 @@ public class Frontier extends Configurable {
         logger.warn("Could not remove: {} from list of processed pages.", webURL.getURL());
       }
       boolean isLast = numOffspring(webURL.getSeedDocid()) == 0;
-      logger.error("Set processed URL {} from seed [[{}]] - last: {}", webURL.getURL(), webURL.getSeedDocid(), isLast);
       if (isLast)
           finished_seeds.remove(webURL.getSeedDocid());
       return isLast;
