@@ -45,6 +45,12 @@ import edu.uci.ics.crawler4j.util.IO;
 public class CrawlController extends Configurable {
   static final Logger logger = LoggerFactory.getLogger(CrawlController.class);
 
+  /** The monitor thread self */
+  protected Thread monitorThread = null;
+  
+  /** The list of monitored threads by the CrawlController */
+  protected final List<Thread> threads = new ArrayList<>();
+  
   /**
    * The 'customData' object can be used for passing custom crawl-related
    * configurations to different components of the crawler.
@@ -208,7 +214,6 @@ public class CrawlController extends Configurable {
     try {
       finished = false;
       crawlersLocalData.clear();
-      final List<Thread> threads = new ArrayList<>();
       final List<T> crawlers = new ArrayList<>();
 
       for (int i = 1; i <= numberOfCrawlers; i++) {
@@ -224,7 +229,12 @@ public class CrawlController extends Configurable {
 
       final CrawlController controller = this;
 
-      Thread monitorThread = new Thread(new Runnable() {
+      if (monitorThread != null) {
+        logger.error("MonitorThread is already started.");
+        return;
+      }
+      
+      monitorThread = new Thread(new Runnable() {
 
         @Override
         public void run() {
@@ -319,6 +329,17 @@ public class CrawlController extends Configurable {
         if (finished) {
           return;
         }
+        int threadsAlive = 0;
+        for (Thread t : this.threads)
+            if (t.isAlive())
+              ++threadsAlive;
+        
+        if ((monitorThread == null || !monitorThread.isAlive()) && threadsAlive == 0) {
+          finished = true;
+          logger.warn("Monitor thread is dead, and no active crawler thread, but finish was not set. Something went wrong.");
+          return;
+        }
+          
         try {
           waitingLock.wait();
         } catch (InterruptedException e) {
