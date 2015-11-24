@@ -325,21 +325,16 @@ public class CrawlController extends Configurable {
    */
   public void waitUntilFinish() {
     while (!finished) {
-      synchronized (waitingLock) {
-        if (finished) {
-          return;
-        }
-        int threadsAlive = 0;
-        for (Thread t : this.threads)
-            if (t.isAlive())
-              ++threadsAlive;
-        
-        if ((monitorThread == null || !monitorThread.isAlive()) && threadsAlive == 0) {
-          finished = true;
-          logger.warn("Monitor thread is dead, and no active crawler thread, but finish was not set. Something went wrong.");
-          return;
-        }
+      if (monitorThread == null || !monitorThread.isAlive()) {
+        logger.warn("Monitor thread is dead, but finished was not set. Something went wrong.");
+        return;
+      }
           
+      if (finished) {
+        return;
+      }
+      
+      synchronized (waitingLock) {
         try {
           waitingLock.wait();
         } catch (InterruptedException e) {
