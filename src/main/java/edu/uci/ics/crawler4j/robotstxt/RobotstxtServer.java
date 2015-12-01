@@ -147,7 +147,7 @@ public class RobotstxtServer {
           if (new_url.endsWith("robots.txt")) {
             robotsTxtUrl.setURL(new_url);
           } else {
-            logger.info("While fetching robots.txt from {}, redirected to non-robots.txt URL: {}. Assuming no robots.txt for this domain", fetchResult.getFetchedUrl(), new_url);
+            logger.info("While fetching robots.txt from {}, redirected to non-robots.txt URL: {}. Assuming no robots.txt for this domain", robotsTxtUrl.getURL(), new_url);
             break;
           }
         }
