@@ -20,6 +20,7 @@ package edu.uci.ics.crawler4j.robotstxt;
 import java.net.MalformedURLException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.HashMap;
@@ -104,7 +105,7 @@ public class RobotstxtServer {
   public HostDirectives getDirectives(WebURL weburl) {
     String host;
     try {
-      URL url = new URL(weburl.getURL());
+      URL url = weburl.getURI().toURL();
       host = getHost(url);
     } catch (MalformedURLException e) {
       return null;
@@ -116,11 +117,16 @@ public class RobotstxtServer {
   }
 
   private HostDirectives fetchDirectives(URL url) {
-    WebURL robotsTxtUrl = new WebURL();
+    WebURL robotsTxtUrl = null;
     String host = getHost(url);
     String port = ((url.getPort() == url.getDefaultPort()) || (url.getPort() == -1)) ? "" : (":" + url.getPort());
     String proto = url.getProtocol();
-    robotsTxtUrl.setURL(proto + "://" + host + port + "/robots.txt");
+    
+    String robots_url = proto + "://" + host + port + "/robots.txt";
+    try {
+      robotsTxtUrl = new WebURL(robots_url);
+    } catch (URISyntaxException e) {} // Will be caught later on
+    
     HostDirectives directives = null;
     PageFetchResult fetchResult = null;
     try {
@@ -188,9 +194,9 @@ public class RobotstxtServer {
     } catch (SocketException | UnknownHostException | SocketTimeoutException | NoHttpResponseException se) {
       // No logging here, as it just means that robots.txt doesn't exist on this server which is perfectly ok
     } catch (PageBiggerThanMaxSizeException pbtms) {
-      logger.error("Error occurred while fetching (robots) url: {}, {}", robotsTxtUrl.getURL(), pbtms.getMessage());
+      logger.error("Error occurred while fetching (robots) url: {}, {}", robots_url, pbtms.getMessage());
     } catch (Exception e) {
-      logger.error("Error occurred while fetching (robots) url: " + robotsTxtUrl.getURL(), e);
+      logger.error("Error occurred while fetching (robots) url: " + robots_url, e);
     } finally {
       if (fetchResult != null) {
         fetchResult.discardContentIfNotConsumed();

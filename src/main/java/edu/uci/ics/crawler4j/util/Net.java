@@ -1,5 +1,6 @@
 package edu.uci.ics.crawler4j.util;
 
+import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -20,14 +21,16 @@ public class Net {
     if (input != null) {
       Matcher matcher = pattern.matcher(input);
       while (matcher.find()) {
-        WebURL webURL = new WebURL();
         String urlStr = matcher.group();
         if (!urlStr.startsWith("http")) {
           urlStr = "http://" + urlStr;
         }
 
-        webURL.setURL(urlStr);
-        extractedUrls.add(webURL);
+        try
+        {
+            WebURL webURL = new WebURL(urlStr);
+            extractedUrls.add(webURL);
+        } catch (URISyntaxException e) {} // Don't add broken URLs
       }
     }
 

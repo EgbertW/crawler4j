@@ -2,6 +2,8 @@ package edu.uci.ics.crawler4j.tests;
 
 import static org.junit.Assert.assertEquals;
 
+import java.net.URISyntaxException;
+
 import org.junit.Test;
 
 import edu.uci.ics.crawler4j.url.URLCanonicalizer;
@@ -9,14 +11,14 @@ import edu.uci.ics.crawler4j.url.WebURL;
 
 public class TLDListTest {
 
-  private final WebURL webUrl = new WebURL();
+  private WebURL webUrl;
 
-  private void setUrl(String url) {
-    webUrl.setURL(URLCanonicalizer.getCanonicalURL(url));
+  private void setUrl(String url) throws URISyntaxException {
+    webUrl = new WebURL(URLCanonicalizer.getCanonicalURL(url));
   }
 
   @Test
-  public void testTLD() {
+  public void testTLD() throws URISyntaxException {
 
     setUrl("http://example.com");
     assertEquals("example.com", webUrl.getDomain());

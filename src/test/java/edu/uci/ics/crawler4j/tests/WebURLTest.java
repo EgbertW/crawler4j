@@ -1,5 +1,7 @@
 package edu.uci.ics.crawler4j.tests;
 
+import java.net.URISyntaxException;
+
 import org.junit.Test;
 
 import edu.uci.ics.crawler4j.url.WebURL;
@@ -12,8 +14,7 @@ import edu.uci.ics.crawler4j.url.WebURL;
 public class WebURLTest {
 
   @Test
-  public void testNoLastSlash() {
-    WebURL webUrl = new WebURL();
-    webUrl.setURL("http://google.com");
+  public void testNoLastSlash() throws URISyntaxException {
+    new WebURL("http://google.com");
   }
 }

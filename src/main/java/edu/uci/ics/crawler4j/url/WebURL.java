@@ -18,6 +18,8 @@
 package edu.uci.ics.crawler4j.url;
 
 import java.io.Serializable;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 import com.sleepycat.persist.model.Entity;
 import com.sleepycat.persist.model.PrimaryKey;
@@ -33,6 +35,7 @@ public class WebURL implements Serializable, Comparable<WebURL> {
 
   @PrimaryKey
   private String url;
+  private URI uri;
 
   private int docid = -1;
   private int parentDocid;
@@ -51,6 +54,7 @@ public class WebURL implements Serializable, Comparable<WebURL> {
   public WebURL(WebURL rhs)
   {
     this.url = rhs.url;
+    this.uri = rhs.uri;
     this.docid = rhs.docid;
     this.parentDocid = rhs.parentDocid;
     this.seedDocid = rhs.seedDocid;
@@ -65,17 +69,22 @@ public class WebURL implements Serializable, Comparable<WebURL> {
     this.seedEnded = rhs.seedEnded;
   }
 
-  public WebURL()
-  {}
+  public WebURL(String url) throws URISyntaxException
+  {
+      setURL(url);
+  }
 
   public String getProtocol() {
-    int pos = url.indexOf(":");
-    return url.substring(0, pos).toLowerCase();
+    return uri != null ? uri.getScheme().toLowerCase() : null;
   }
   
   public boolean isHttp() {
     String protocol = getProtocol();
-    return protocol.equals("http") || protocol.equals("https");
+    return protocol != null && (protocol.equals("http") || protocol.equals("https"));
+  }
+  
+  public URI getURI() {
+    return uri;
   }
   
   /**
@@ -96,14 +105,13 @@ public class WebURL implements Serializable, Comparable<WebURL> {
     return url;
   }
 
-  public void setURL(String url) {
+  public void setURL(String url) throws URISyntaxException {
     this.url = url;
-
-    int domainStartIdx = url.indexOf("//") + 2;
-    int domainEndIdx = url.indexOf('/', domainStartIdx);
-    domainEndIdx = (domainEndIdx > domainStartIdx) ? domainEndIdx : url.length();
-    domain = url.substring(domainStartIdx, domainEndIdx);
+    this.uri = new URI(url);
+    
+    domain = uri.getHost();
     subDomain = "";
+    
     String[] parts = domain.split("\\.");
     if (parts.length > 2) {
       domain = parts[parts.length - 2] + "." + parts[parts.length - 1];
@@ -119,11 +127,7 @@ public class WebURL implements Serializable, Comparable<WebURL> {
         subDomain += parts[i];
       }
     }
-    path = url.substring(domainEndIdx);
-    int pathEndIdx = path.indexOf('?');
-    if (pathEndIdx >= 0) {
-      path = path.substring(0, pathEndIdx);
-    }
+    path = uri.getPath();
   }
 
   /**

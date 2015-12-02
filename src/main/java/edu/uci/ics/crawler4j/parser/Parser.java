@@ -20,6 +20,7 @@ package edu.uci.ics.crawler4j.parser;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -164,8 +165,13 @@ public class Parser extends Configurable {
             !hrefLoweredCase.contains("@")) {
           String url = URLCanonicalizer.getCanonicalURL(href, contextURL);
           if (url != null) {
-            WebURL webURL = new WebURL();
-            webURL.setURL(url);
+            WebURL webURL;
+            try {
+              webURL = new WebURL(url);
+            } catch (URISyntaxException e) {
+              logger.debug("Skipping invalid URI: {}", url);
+              continue;
+            }
             webURL.setTag(urlAnchorPair.getTag());
             webURL.setAnchor(urlAnchorPair.getAnchor());
             outgoingUrls.add(webURL);

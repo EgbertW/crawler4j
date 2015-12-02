@@ -18,6 +18,7 @@
 package edu.uci.ics.crawler4j.crawler;
 
 import java.io.File;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -370,7 +371,7 @@ public class CrawlController extends Configurable {
    * @param pageUrl
    *            the URL of the seed
    */
-  public int addSeed(String pageUrl) {
+  public int addSeed(String pageUrl) throws URISyntaxException {
     return addSeed(pageUrl, -1);
   }
 
@@ -385,7 +386,7 @@ public class CrawlController extends Configurable {
    * @param docId
    *            the document id that you want to be assigned to this seed URL.
    */
-  public int addSeed(String pageUrl, int docId) {
+  public int addSeed(String pageUrl, int docId) throws URISyntaxException {
     return addSeed(pageUrl, docId, (byte)0);
   }
     
@@ -410,14 +411,13 @@ public class CrawlController extends Configurable {
    *            the priority to assign to this seed
    * @return The docId used / assigned for the seed URL
    */
-  public int addSeed(String pageUrl, int docId, byte priority) {
+  public int addSeed(String pageUrl, int docId, byte priority) throws URISyntaxException {
     String canonicalUrl = URLCanonicalizer.getCanonicalURL(pageUrl);
     if (canonicalUrl == null) {
       logger.error("Invalid seed URL: {}", pageUrl);
       return -1;
     }
-    WebURL webUrl = new WebURL();
-    webUrl.setURL(canonicalUrl);
+    WebURL webUrl = new WebURL(canonicalUrl);
     webUrl.setSeedDocid(docId);
     webUrl.setDepth((short) 0);
     webUrl.setPriority(priority);

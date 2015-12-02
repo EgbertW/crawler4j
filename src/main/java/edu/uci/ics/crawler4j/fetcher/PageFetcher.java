@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -224,38 +223,32 @@ public class PageFetcher extends Configurable {
     HostRequests best_req = null;
     synchronized (nextFetchTimes) {
       for (WebURL webUrl : urls) {
-        try {
-          URI url = new URI(webUrl.getURL());
-          String host = url.getHost();
-          HostRequests target_time = nextFetchTimes.get(host);
-          if (target_time == null) {
-            // Currently, no fetch time is available. This makes a good
-            // candidate. Do add a new entry for HostRequests, because
-            // the penalty needs to be stored to avoid selecting it again.
-            target_time = new HostRequests();
-            target_time.nextFetchTime = now;
-            target_time.penalty = target_time.delay;
-            nextFetchTimes.put(host, target_time);
-            return webUrl;
-          }
-          
-          long delay = target_time.nextFetchTime + target_time.penalty - now;
-          
-          // A negative time or 0 time is instant crawl
-          if (delay <= 0) {
-            target_time.penalty += target_time.delay;
-            return webUrl;
-          }
-          
-          if (min_delay == null || delay < min_delay) {
-            min_delay = delay;
-            min_url = webUrl;
-            best_req = target_time;
-          }
-        }
-        catch (URISyntaxException e) {
-          // Invalid URL, will not succeed, might as well get over with it
+        URI url = webUrl.getURI();
+        String host = url.getHost();
+        HostRequests target_time = nextFetchTimes.get(host);
+        if (target_time == null) {
+          // Currently, no fetch time is available. This makes a good
+          // candidate. Do add a new entry for HostRequests, because
+          // the penalty needs to be stored to avoid selecting it again.
+          target_time = new HostRequests();
+          target_time.nextFetchTime = now;
+          target_time.penalty = target_time.delay;
+          nextFetchTimes.put(host, target_time);
           return webUrl;
+        }
+          
+        long delay = target_time.nextFetchTime + target_time.penalty - now;
+          
+        // A negative time or 0 time is instant crawl
+        if (delay <= 0) {
+          target_time.penalty += target_time.delay;
+          return webUrl;
+        }
+          
+        if (min_delay == null || delay < min_delay) {
+          min_delay = delay;
+          min_url = webUrl;
+          best_req = target_time;
         }
       }
       

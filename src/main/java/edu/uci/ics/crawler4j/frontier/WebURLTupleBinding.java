@@ -17,6 +17,8 @@
 
 package edu.uci.ics.crawler4j.frontier;
 
+import java.net.URISyntaxException;
+
 import com.sleepycat.bind.tuple.TupleBinding;
 import com.sleepycat.bind.tuple.TupleInput;
 import com.sleepycat.bind.tuple.TupleOutput;
@@ -30,8 +32,14 @@ public class WebURLTupleBinding extends TupleBinding<WebURL> {
 
   @Override
   public WebURL entryToObject(TupleInput input) {
-    WebURL webURL = new WebURL();
-    webURL.setURL(input.readString());
+    WebURL webURL;
+    try {
+      webURL = new WebURL(input.readString());
+    } catch (URISyntaxException e) {
+      // If this happens, it means an invalid WebURL was entered to begin with,s
+      // so something is seriously broken.
+      throw new RuntimeException(e);
+    }
     webURL.setDocid(input.readInt());
     webURL.setParentDocid(input.readInt());
     webURL.setParentUrl(input.readString());

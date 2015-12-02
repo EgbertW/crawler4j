@@ -17,6 +17,8 @@
 
 package edu.uci.ics.crawler4j.examples.localdata;
 
+import java.net.URISyntaxException;
+
 import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,13 +48,13 @@ public class Downloader {
     pageFetcher = new PageFetcher(config);
   }
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws URISyntaxException {
     Downloader downloader = new Downloader();
     downloader.processUrl("http://en.wikipedia.org/wiki/Main_Page/");
     downloader.processUrl("http://www.yahoo.com/");
   }
 
-  public void processUrl(String url) {
+  public void processUrl(String url) throws URISyntaxException {
     logger.debug("Processing: {}", url);
     Page page = download(url);
     if (page != null) {
@@ -73,9 +75,8 @@ public class Downloader {
     logger.debug("==============");
   }
 
-  private Page download(String url) {
-    WebURL curURL = new WebURL();
-    curURL.setURL(url);
+  private Page download(String url) throws URISyntaxException {
+    WebURL curURL = new WebURL(url);
     PageFetchResult fetchResult = null;
     try {
       fetchResult = pageFetcher.fetchPage(curURL);

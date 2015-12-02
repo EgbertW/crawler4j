@@ -388,9 +388,8 @@ public class WebCrawler implements Runnable {
               throw new RedirectException(Level.WARN, "Unexpected error, URL: " + curURL + " is redirected to NOTHING");
             }
             page.setRedirectedToUrl(movedToUrl);
-
-            WebURL webURL = new WebURL();
-            webURL.setURL(movedToUrl);
+            
+            WebURL webURL = new WebURL(movedToUrl);
             webURL.setParentDocid(curURL.getParentDocid());
             webURL.setParentUrl(curURL.getParentUrl());
             webURL.setSeedDocid(curURL.getSeedDocid());
@@ -443,8 +442,7 @@ public class WebCrawler implements Runnable {
         // a <meta name="fragment" content="!"> tag to the _escaped_fragment_ version
         // of the page.
         if (page.isRedirect()) {
-          WebURL webURL = new WebURL();
-          webURL.setURL(page.redirectedToUrl);
+          WebURL webURL = new WebURL(page.redirectedToUrl);
           webURL.setParentDocid(curURL.getParentDocid());
           webURL.setParentUrl(curURL.getParentUrl());
           webURL.setSeedDocid(curURL.getSeedDocid());
