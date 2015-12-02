@@ -297,7 +297,7 @@ public class Frontier extends Configurable {
           long cur = System.currentTimeMillis();
           if (cur > last_msg + 30000)
           {
-              logger.info("Work queue has size {} but timeouts are long. Waiting for more URLs to come in", current_queue.size());
+              logger.debug("Work queue has size {} but timeouts are long. Waiting for more URLs to come in", current_queue.size());
               last_msg = cur;
           }
           
@@ -311,7 +311,7 @@ public class Frontier extends Configurable {
             long cur = System.currentTimeMillis();
             if (cur > last_msg + 30000)
             {
-                logger.info("Work queue is empty. Waiting for more URLs to come in");
+                logger.debug("Work queue is empty. Waiting for more URLs to come in");
                 last_msg = cur;
             }
         }
