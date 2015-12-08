@@ -255,24 +255,23 @@ public class WebCrawler implements Runnable {
   }
   
   /**
-   * Replace the list of URLs in progress with a new empty
-   * list and return the current list. This may be called by the
-   * CrawlController to relocate URLs to a newly started thread
-   * in case of a crash. Should only be called when the thread is dead.
+   * Replace the assigned URL with null, and return the current URL.
+   * This may be called by the CrawlController to relocate URLs to a newly
+   * started thread in case of a crash. Should only be called when the thread is dead.
    * 
    * @return The list of assigned URLs
    */
-  public WebURL extractAssignedURLs() {
+  public WebURL extractAssignedURL() {
       WebURL cur = assignedURL;
       assignedURL = null;
       return cur;
   }
   
   /**
-   * Add all urls from a list to the assigned URLs. This should be used
-   * with the result of extractAssignedURLs from a different instance.
+   * Set a URL as the assigned URL. This should be used
+   * with the result of extractAssignedURL from a different instance.
    * 
-   * @param list The list of assigned URLs to add
+   * @param url The previously assigned URL to assign to this instance
    */
   public void resume(WebURL url) {
       assignedURL = url;

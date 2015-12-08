@@ -99,7 +99,7 @@ public class RobotstxtServer {
    * fetch the robots.txt file, but only return the cached directives
    * if they are available.
    * 
-   * @param url The URL for which to get the directives
+   * @param weburl The URL for which to get the directives
    * @return HostDirectives object for the host, or null if no directives are available
    */
   public HostDirectives getDirectives(WebURL weburl) {

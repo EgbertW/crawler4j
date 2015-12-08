@@ -163,7 +163,7 @@ public class Frontier extends Configurable {
    * Schedule a WebURL. It will use doSchedule to schedule it and update the counter values.
    * 
    * @param url The WebURL to schedule.
-   * @see doSchedule(WebURL url)
+   * @see #doSchedule(WebURL url)
    */
   public boolean schedule(WebURL url) {
     boolean scheduled = false;

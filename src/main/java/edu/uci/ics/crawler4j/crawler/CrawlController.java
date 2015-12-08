@@ -256,7 +256,7 @@ public class CrawlController extends Configurable {
                       T oldCrawler = crawlers.get(i);
                       crawler.setThread(thread);
                       crawler.init(i + 1, controller);
-                      crawler.resume(oldCrawler.extractAssignedURLs());
+                      crawler.resume(oldCrawler.extractAssignedURL());
                       thread.start();
                       crawlers.remove(i);
                       crawlers.add(i, crawler);
@@ -379,7 +379,7 @@ public class CrawlController extends Configurable {
    * Adds a new seed URL with a priority of 0. A seed URL is a URL that is fetched
    * by the crawler to extract new URLs in it and follow them for crawling.
    * 
-   * @seealso addSeed(String, int, byte)
+   * @see #addSeed(String, int, byte)
    * 
    * @param pageUrl
    *            the URL of the seed
