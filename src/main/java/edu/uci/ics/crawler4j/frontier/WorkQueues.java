@@ -108,7 +108,7 @@ public class WorkQueues {
    * 
    * @param max The maximum number of items to return
    * @return The list of items, limited by max
-   * @throws DatabaseException
+   * @throws DatabaseException When the sleepycat database throws an error
    */
   public List<WebURL> shift(int max) throws DatabaseException {
     synchronized (mutex) {

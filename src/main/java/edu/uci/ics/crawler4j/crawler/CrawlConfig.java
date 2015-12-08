@@ -274,6 +274,8 @@ public class CrawlConfig {
 
   /**
    * Return a copy of the default header collection.
+   * 
+   * @return The default headers
    */
   public Collection<BasicHeader> getDefaultHeaders() {
     return new HashSet<>(defaultHeaders);
@@ -281,6 +283,8 @@ public class CrawlConfig {
 
   /**
    * Set the default header collection (creating copies of the provided headers).
+   * 
+   * @param defaultHeaders The default headers
    */
   public void setDefaultHeaders(Collection<? extends Header> defaultHeaders) {
     Collection<BasicHeader> copiedHeaders = new HashSet<>();
@@ -334,6 +338,8 @@ public class CrawlConfig {
 
   /**
    * Should we process binary content such as images, audio, ... using TIKA?
+   * 
+   * @param processBinaryContentInCrawling Whether to proces the content
    */
   public void setProcessBinaryContentInCrawling(boolean processBinaryContentInCrawling) {
     this.processBinaryContentInCrawling = processBinaryContentInCrawling;
@@ -421,7 +427,7 @@ public class CrawlConfig {
   }
   
   /**
-   * Should the crawler stop running when the queue is empty?
+   * @param shutdown Should the crawler stop running when the queue is empty?
    */
   public void setShutdownOnEmptyQueue(boolean shutdown) {
       shutdownOnEmptyQueue = shutdown;
@@ -432,7 +438,7 @@ public class CrawlConfig {
   }
   
   /**
-   * Should the robots.txt directives be ignored when adding a seed? If this is set to true,
+   * @param ignore Should the robots.txt directives be ignored when adding a seed? If this is set to true,
    * a seed will be fetched even if robots.txt disallows it.
    */
   public void setIgnoreRobotsTxtForSeed(boolean ignore) {
@@ -447,6 +453,8 @@ public class CrawlConfig {
    * Should the TLD list be updated automatically on each run? Alternatively,
    * it can be loaded from the embedded tld-names.txt resource file that was
    * obtained from https://publicsuffix.org/list/effective_tld_names.dat
+   * 
+   * @param online True to get list online, false otherwise
    */
   public void setOnlineTldListUpdate(boolean online) {
     onlineTldListUpdate = online;

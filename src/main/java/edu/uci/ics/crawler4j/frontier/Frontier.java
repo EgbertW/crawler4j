@@ -164,6 +164,7 @@ public class Frontier extends Configurable {
    * 
    * @param url The WebURL to schedule.
    * @see #doSchedule(WebURL url)
+   * @return If the URL was scheduled
    */
   public boolean schedule(WebURL url) {
     boolean scheduled = false;

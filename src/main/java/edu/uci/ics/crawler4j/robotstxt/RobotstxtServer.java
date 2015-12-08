@@ -63,7 +63,12 @@ public class RobotstxtServer {
     return url.getHost().toLowerCase();
   }
 
-  /** Please note that in the case of a bad URL, TRUE will be returned */
+  /** 
+   * Please note that in the case of a bad URL, TRUE will be returned 
+   * 
+   * @param webURL The url to check
+   * @return True if the URL may be crawled, false otherwise
+   **/
   public boolean allows(WebURL webURL) {
     if (!config.isEnabled()) {
       return true;

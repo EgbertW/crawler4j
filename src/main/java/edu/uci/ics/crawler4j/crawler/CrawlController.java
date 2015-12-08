@@ -370,6 +370,8 @@ public class CrawlController extends Configurable {
    *
    * @param pageUrl
    *            the URL of the seed
+   * @throws URISyntaxException invalid page url
+   * @return The doc id assigned to theURL
    */
   public int addSeed(String pageUrl) throws URISyntaxException {
     return addSeed(pageUrl, -1);
@@ -385,6 +387,8 @@ public class CrawlController extends Configurable {
    *            the URL of the seed
    * @param docId
    *            the document id that you want to be assigned to this seed URL.
+   * @throws URISyntaxException on invalid page url
+   * @return The doc ID assigned to the url
    */
   public int addSeed(String pageUrl, int docId) throws URISyntaxException {
     return addSeed(pageUrl, docId, (byte)0);
@@ -409,6 +413,7 @@ public class CrawlController extends Configurable {
    *            the document id that you want to be assigned to this seed URL.
    * @param priority
    *            the priority to assign to this seed
+   * @throws URISyntaxException on invalid page url
    * @return The docId used / assigned for the seed URL
    */
   public int addSeed(String pageUrl, int docId, byte priority) throws URISyntaxException {

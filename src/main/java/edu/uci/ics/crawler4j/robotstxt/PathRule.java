@@ -14,7 +14,7 @@ public class PathRule {
   /**
    * Match a pattern defined in a robots.txt file to a path
    * Following the pattern definition as stated on:
-   * https://support.google.com/webmasters/answer/6062596?hl=en&ref_topic=6061961
+   * https://support.google.com/webmasters/answer/6062596?hl=en&amp;ref_topic=6061961
    * 
    * This page defines the following items:
    *    * matches any sequence of characters, including /

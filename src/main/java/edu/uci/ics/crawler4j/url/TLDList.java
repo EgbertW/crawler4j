@@ -93,6 +93,8 @@ public class TLDList {
   /**
    * If {@code online} is set to true, the list of TLD files will be downloaded and refreshed, otherwise the one
    * cached in src/main/resources/tld-names.txt will be used.
+   * 
+   * @param online Whether to fetch the TLD list from online resource
    */
   public static void setUseOnline(boolean online) {
     onlineUpdate = online;

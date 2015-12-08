@@ -106,10 +106,10 @@ public class Page {
    * Loads the content of this page from a fetched HttpEntity.
    *
    * @param entity HttpEntity
+   * @param max_bytes The maximum amount of bytes to load
    * @throws Exception when load fails
    */
   public void load(HttpEntity entity, int max_bytes) throws Exception {
-
     contentType = null;
     Header type = entity.getContentType();
     if (type != null) {

@@ -50,7 +50,10 @@ public class WebURL implements Serializable, Comparable<WebURL> {
   private String tag;
   private boolean seedEnded = false;
 
-  /** Copy constructor */
+  /** Copy constructor
+   * 
+   * @param rhs The WebURL to copy
+   **/
   public WebURL(WebURL rhs)
   {
     this.url = rhs.url;
