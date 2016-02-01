@@ -169,6 +169,9 @@ public class RobotstxtServer {
       if (fetchResult != null && fetchResult.getStatusCode() == HttpStatus.SC_OK) {
         Page page = new Page(robotsTxtUrl);
         fetchResult.fetchContent(page, 16384);
+        String ctype = page.getContentType();
+        if (ctype == null)
+          ctype = "";
         if (Util.hasPlainTextContent(page.getContentType())) {
           try {
             String content = "";
@@ -185,7 +188,7 @@ public class RobotstxtServer {
           } catch (Exception e) {
             logger.error("Error occurred while fetching (robots) url: " + robotsTxtUrl.getURL(), e);
           }
-        } else if (page.getContentType().contains("html")) { // TODO This one should be upgraded to remove all html tags
+        } else if (ctype.contains("html")) { // TODO This one should be upgraded to remove all html tags
           String content = new String(page.getContentData());
           directives = RobotstxtParser.parse(robotsTxtUrl.getURL(), content, config);
         } else {
