@@ -115,6 +115,9 @@ public class WebURL implements Serializable, Comparable<WebURL> {
     domain = uri.getHost();
     subDomain = "";
     
+    if (domain == null) {
+      throw new URISyntaxException(url, "Domain is null");
+    }
     String[] parts = domain.split("\\.");
     if (parts.length > 2) {
       domain = parts[parts.length - 2] + "." + parts[parts.length - 1];
