@@ -300,6 +300,7 @@ public class WebCrawler implements Runnable {
             processPage(fetchURL);
         } catch (OutOfMemoryError e) {
           logger.error("OutOfMemory occured while processing URL {}. Shutting down.", assignedURL.getURL());
+          logger.error("Stacktrace for OOM", e);
           myController.shutdown();
           throw e;
         } finally {
