@@ -264,43 +264,38 @@ public class CrawlController extends Configurable {
                   } 
                 }
                 boolean shut_on_empty = config.isShutdownOnEmptyQueue();
-                if (frontier.getQueueLength() == 0 && shut_on_empty) {
+                if (shuttingDown || (frontier.getQueueLength() == 0 && shut_on_empty)) {
                   if (!shuttingDown)
                   {
                     logger.info("No pages are in progress and none are enqueued. Waiting a second to make sure");
                     sleep(1);
-                    if (frontier.getQueueLength() == 0)
-                    {
-                      logger.info("Still no pages are in progress and still none are enqueued. Finishing the process...");
-                      shuttingDown = true;
-                    }
+                    if (frontier.getQueueLength() > 0)
+                      continue;
+                    logger.info("Still no pages are in progress and still none are enqueued. Finishing the process...");
+                    shuttingDown = true;
                   }
                   
-                  if (shuttingDown) {
-                    // At this step, frontier notifies the
-                    // threads that were
-                    // waiting for new URLs and they should
-                    // stop
-                    frontier.finish();
-                    for (T crawler : crawlers) {
-                      crawler.onBeforeExit();
-                      crawlersLocalData.add(crawler.getMyLocalData());
-                    }
-                    
-                    logger.info("Joining all running threads...");
-                    for (Thread t : threads)
-                        t.join();
-
-                    frontier.close();
-                    docIdServer.close();
-                    pageFetcher.shutDown();
-
-                    finished = true;
-                    waitingLock.notifyAll();
-                    env.close();
-
-                    return;
+                  // At this step, frontier notifies the
+                  // threads that were
+                  // waiting for new URLs and they should
+                  // stop
+                  frontier.finish();
+                  for (T crawler : crawlers) {
+                    crawler.onBeforeExit();
+                    crawlersLocalData.add(crawler.getMyLocalData());
                   }
+                  
+                  logger.info("Joining all running threads...");
+                  for (Thread t : threads)
+                      t.join();
+                  frontier.close();
+                  docIdServer.close();
+                  pageFetcher.shutDown();
+
+                  finished = true;
+                  waitingLock.notifyAll();
+                  env.close();
+                  return;
                 }
               }
             }
@@ -324,7 +319,11 @@ public class CrawlController extends Configurable {
   /**
    * Wait until this crawling session finishes.
    */
-  public void waitUntilFinish() {
+  // Deprecation warning suppressed because it results from the use of the Thread.stop 
+  // method. This method is used as a final attempt to shutdown in case of an OutOfMemory
+  // exception, so we don't care about negative side effects.
+@SuppressWarnings("deprecation")
+public void waitUntilFinish() {
     while (!finished) {
       if (monitorThread == null || !monitorThread.isAlive()) {
         logger.warn("Monitor thread is dead, but finished was not set. Something went wrong.");
@@ -337,9 +336,23 @@ public class CrawlController extends Configurable {
       
       synchronized (waitingLock) {
         try {
-          waitingLock.wait();
+          waitingLock.wait(1000);
         } catch (InterruptedException e) {
           logger.error("Error occurred", e);
+        }
+      }
+      
+      // Catch errors by checking threads and monitor thread now
+      boolean threads_alive = false;
+      for (Thread t : threads)
+          if (t.isAlive())
+              threads_alive = true;
+      
+      if (!threads_alive)
+      {
+        if (monitorThread != null && monitorThread.isAlive()) {
+          monitorThread.stop(new RuntimeException("Monitor thread is refusing to shut down"));
+          return;
         }
       }
     }
