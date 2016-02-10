@@ -77,7 +77,7 @@ public class Util {
   public static boolean hasPlainTextContent(String contentType) {
     String typeStr = (contentType != null) ? contentType.toLowerCase() : "";
 
-    return typeStr.equals("text/plain");
+    return typeStr.startsWith("text/plain");
   }
 
 }
