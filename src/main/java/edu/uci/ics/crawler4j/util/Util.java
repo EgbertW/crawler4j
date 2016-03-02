@@ -67,9 +67,37 @@ public class Util {
     return value;
   }
 
-  public static boolean hasBinaryContent(String contentType) {
+  public static boolean hasBinaryContent(String contentType, byte [] content) {
     String typeStr = (contentType != null) ? contentType.toLowerCase() : "";
 
+    if (typeStr.isEmpty())
+    {
+        try
+        {
+            // Try to parse content as UTF-8 to see if it's xml or xhtml+xml
+            String str = new String(content, "UTF-8");
+            if (str.startsWith("<?xml")) // xml should be treated as binary, but xhtml shouldn't
+                return !str.contains("<html");
+        }
+        catch (Exception e)
+        {}
+        
+        // No verdict - go count non-ascii characters to estimate probability on binary content
+        int nonASCII = 0;
+        int chars = Math.min(content.length, 2048);
+        for (int i = 0; i < chars; ++i)
+            if (content[i] < 32 || content[i] > 126)
+                ++nonASCII;
+        
+        // If 10% of the characters are outside of ASCII range and no content type has been specified,
+        // it's very likely that we're dealing with binary content here.
+        return (nonASCII / (double)chars) > 0.1;
+    }
+    
+    // xhtml is application/xhtml+xml - xhtml can be parsed by HTML parsed, but XML should be parsed by TIKA
+    if (typeStr.contains("xml"))
+        return !typeStr.contains("html");
+    
     return typeStr.contains("image") || typeStr.contains("audio") || typeStr.contains("video") ||
            typeStr.contains("application");
   }

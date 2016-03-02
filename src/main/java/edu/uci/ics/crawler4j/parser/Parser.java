@@ -58,7 +58,7 @@ public class Parser extends Configurable {
   }
 
   public void parse(Page page, String contextURL) throws NotAllowedContentException, ParseException {
-    if (Util.hasBinaryContent(page.getContentType())) { // BINARY
+    if (Util.hasBinaryContent(page.getContentType(), page.getContentData())) { // BINARY
       BinaryParseData parseData = new BinaryParseData();
       if (config.isIncludeBinaryContentInCrawling()) {
         if (config.isProcessBinaryContentInCrawling()) {
