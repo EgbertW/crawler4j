@@ -40,10 +40,10 @@ public class WebURLTupleBinding extends TupleBinding<WebURL> {
       // so something is seriously broken.
       throw new RuntimeException(e);
     }
-    webURL.setDocid(input.readInt());
-    webURL.setParentDocid(input.readInt());
+    webURL.setDocid(input.readLong());
+    webURL.setParentDocid(input.readLong());
     webURL.setParentUrl(input.readString());
-    webURL.setSeedDocid(input.readInt());;
+    webURL.setSeedDocid(input.readLong());;
     webURL.setDepth(input.readShort());
     webURL.setPriority(input.readByte());
     webURL.setAnchor(input.readString());
@@ -53,10 +53,10 @@ public class WebURLTupleBinding extends TupleBinding<WebURL> {
   @Override
   public void objectToEntry(WebURL url, TupleOutput output) {
     output.writeString(url.getURL());
-    output.writeInt(url.getDocid());
-    output.writeInt(url.getParentDocid());
+    output.writeLong(url.getDocid());
+    output.writeLong(url.getParentDocid());
     output.writeString(url.getParentUrl());
-    output.writeInt(url.getSeedDocid());
+    output.writeLong(url.getSeedDocid());
     output.writeShort(url.getDepth());
     output.writeByte(url.getPriority());
     output.writeString(url.getAnchor());

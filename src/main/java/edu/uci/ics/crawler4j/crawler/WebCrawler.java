@@ -285,7 +285,7 @@ public class WebCrawler implements Runnable {
     while (true) {
       if (assignedURL == null) {
         isWaitingForNewURLs = true;
-        assignedURL = frontier.getNextURL(pageFetcher);
+        assignedURL = frontier.getNextURL(this, pageFetcher);
         isWaitingForNewURLs = false;
       }
       if (assignedURL != null) {
@@ -306,7 +306,7 @@ public class WebCrawler implements Runnable {
         } finally {
           // Handle the finishing of the URL in the finally clause
           // to make sure it is ALWAYS executed, no matter what.
-          boolean seedEnded = frontier.setProcessed(backup);
+          boolean seedEnded = frontier.setProcessed(this, backup);
             
           // Now, we can run the handleSeedEnd if this is necessary
           if (seedEnded)
@@ -355,9 +355,9 @@ public class WebCrawler implements Runnable {
    * Classes that extend WebCrawler can overwrite this function to perform
    * an action when the last page resulting from a seed has been processed.
    * 
-   * @param seedDocid The document ID of the seed
+   * @param l The document ID of the seed
    */
-  public void handleSeedEnd(int seedDocid) {
+  public void handleSeedEnd(long l) {
       // Do nothing by default
       // Sub-classes can override this to add their custom functionality
   }

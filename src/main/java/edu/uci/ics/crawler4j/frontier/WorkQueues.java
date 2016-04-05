@@ -40,7 +40,7 @@ import edu.uci.ics.crawler4j.util.Util;
 public class WorkQueues {
   private final Database urlsDB;
   private Database seedCountDB = null;
-  private final Map<Integer, Integer> seedCount = new HashMap<Integer, Integer>();
+  private final Map<Long, Integer> seedCount = new HashMap<Long, Integer>();
   private final Environment env;
 
   private final boolean resumable;
@@ -71,7 +71,7 @@ public class WorkQueues {
 
         while (result == OperationStatus.SUCCESS) {
           if (value.getData().length > 0) {
-            Integer docid = Util.byteArray2Int(key.getData());
+            Long docid = Util.byteArray2Long(key.getData());
             Integer counterValue = Util.byteArray2Int(value.getData());
             seedCount.put(docid, counterValue);
           }
@@ -142,14 +142,14 @@ public class WorkQueues {
     }
   }
   
-  public int getSeedCount(Integer docid) {
+  public int getSeedCount(Long docid) {
       synchronized (mutex) {
           return seedCount.containsKey(docid) ? seedCount.get(docid) : 0;
       }
   }
   
-  private void setSeedCount(Integer docid, Integer value) {
-      DatabaseEntry key = new DatabaseEntry(Util.int2ByteArray(docid));
+  private void setSeedCount(Long docid, Integer value) {
+      DatabaseEntry key = new DatabaseEntry(Util.long2ByteArray(docid));
       if (value <= 0)
       {
           synchronized (mutex) {
@@ -174,37 +174,37 @@ public class WorkQueues {
       }
   }
   
-  public void seedIncrease(Integer docid) {
+  public void seedIncrease(Long docid) {
       seedIncrease(docid, 1);
   }
   
-  public void seedIncrease(Integer docid, Integer amount) {
+  public void seedIncrease(Long docid, Integer amount) {
       synchronized (mutex) {
           setSeedCount(docid, getSeedCount(docid) + amount);
       }
   }
   
-  public void seedDecrease(Integer docid) {
+  public void seedDecrease(Long docid) {
       seedIncrease(docid, -1);
   }
   
-  public void seedDecrease(Integer docid, Integer amount) {
+  public void seedDecrease(Long docid, Integer amount) {
       seedIncrease(docid, -amount);
   }
 
   /*
    * The key that is used for storing URLs determines the order
    * they are crawled. Lower key values results in earlier crawling.
-   * Here our keys are 6 bytes. The first byte comes from the URL priority.
+   * Here our keys are 10 bytes. The first byte comes from the URL priority.
    * The second byte comes from depth of crawl at which this URL is first found.
-   * The rest of the 4 bytes come from the docid of the URL. As a result,
+   * The remaining 8 bytes come from the docid of the URL. As a result,
    * URLs with lower priority numbers will be crawled earlier. If priority
    * numbers are the same, those found at lower depths will be crawled earlier.
    * If depth is also equal, those found earlier (therefore, smaller docid) will
    * be crawled earlier.
    */
   protected static DatabaseEntry getDatabaseEntryKey(WebURL url) {
-    byte[] keyData = new byte[6];
+    byte[] keyData = new byte[10];
     
     // Because the ordering is done strictly binary, negative values will come last, because
     // their binary representation starts with the MSB at 1. In order to fix this, we'll have
@@ -214,7 +214,7 @@ public class WorkQueues {
     byte binary_priority = (byte)(url.getPriority() - Byte.MIN_VALUE);
     keyData[0] = binary_priority;
     keyData[1] = (url.getDepth() > Byte.MAX_VALUE ? Byte.MAX_VALUE : (byte) url.getDepth());
-    Util.putIntInByteArray(url.getDocid(), keyData, 2);
+    Util.putLongInByteArray(url.getDocid(), keyData, 2);
     return new DatabaseEntry(keyData);
   }
 
@@ -256,7 +256,6 @@ public class WorkQueues {
             OperationStatus result = cursor.getFirst(key, value, null);
             while (result == OperationStatus.SUCCESS) {
               byte [] data = value.getData();
-              cursor.delete();
               if (data.length > 0) {
                 WebURL url = webURLBinding.entryToObject(value);
                 list.add(url);
@@ -264,8 +263,49 @@ public class WorkQueues {
              result = cursor.getNext(key, value, null);
            }
          }
+         commit(txn);
       }
       
       return list;
+  }
+
+  /**
+   * Remove all offspring of the given seed docid
+   * 
+   * @param seed_doc_id
+   * @return The number of elements removed
+   */
+  public int removeOffspring(long seed_doc_id) {
+    synchronized (mutex) {
+      int removed = 0;
+      DatabaseEntry key = new DatabaseEntry();
+      DatabaseEntry value = new DatabaseEntry();
+      Transaction txn = beginTransaction();
+      try (Cursor cursor = openCursor(txn))
+      {
+        OperationStatus result = cursor.getFirst(key, value, null);
+        while (result == OperationStatus.SUCCESS) {
+          byte [] data = value.getData();
+          if (data.length > 0)
+          {
+            WebURL url = webURLBinding.entryToObject(value);
+            if (url.getSeedDocid() == seed_doc_id) {
+              cursor.delete();
+              ++removed;
+            }
+          }
+          result = cursor.getNext(key,  value, null);
+        }
+      }
+      
+      commit(txn);
+      
+      int cur = getSeedCount(seed_doc_id);
+      if (cur != removed)
+        throw new RuntimeException("Unmatching seed docids - there should be " + cur + " but only " + removed + " were removed");
+      
+      setSeedCount(seed_doc_id, 0);
+      return removed;
+    }
   }
 }

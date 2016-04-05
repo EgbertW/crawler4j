@@ -37,9 +37,9 @@ public class WebURL implements Serializable, Comparable<WebURL> {
   private String url;
   private URI uri;
 
-  private int docid = -1;
-  private int parentDocid;
-  private int seedDocid;
+  private long docid = -1;
+  private long parentDocid;
+  private long seedDocid;
   private String parentUrl;
   private short depth;
   private String domain;
@@ -93,11 +93,11 @@ public class WebURL implements Serializable, Comparable<WebURL> {
   /**
    * @return unique document id assigned to this Url.
    */
-  public int getDocid() {
+  public long getDocid() {
     return docid;
   }
 
-  public void setDocid(int docid) {
+  public void setDocid(long docid) {
     this.docid = docid;
   }
 
@@ -141,11 +141,11 @@ public class WebURL implements Serializable, Comparable<WebURL> {
    *      unique document id of the parent page. The parent page is the
    *      page in which the Url of this page is first observed.
    */
-  public int getParentDocid() {
+  public long getParentDocid() {
     return parentDocid;
   }
 
-  public void setParentDocid(int parentDocid) {
+  public void setParentDocid(long parentDocid) {
     this.parentDocid = parentDocid;
   }
   
@@ -156,11 +156,11 @@ public class WebURL implements Serializable, Comparable<WebURL> {
    * 
    * @return The Docid of the seed
    */
-  public int getSeedDocid() {
+  public long getSeedDocid() {
       return seedDocid;
   }
   
-  public void setSeedDocid(int seedDocid) {
+  public void setSeedDocid(long seedDocid) {
       this.seedDocid = seedDocid;
   }
 
@@ -290,7 +290,7 @@ public class WebURL implements Serializable, Comparable<WebURL> {
   
   public int compareTo(WebURL rhs) {
     if (priority == rhs.priority)
-      return Integer.compare(docid, rhs.docid);
+      return Long.compare(docid, rhs.docid);
     return Integer.compare(priority, rhs.priority);
   }
 }

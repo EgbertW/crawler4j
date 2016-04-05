@@ -538,4 +538,19 @@ public class PageFetcher extends Configurable {
     return new HttpGet(url);
   }
 
+  /**
+   * Get the current delay involved in fetching the specified URL
+   * 
+   * @param webUrl The URL to be crawled
+   * @return The fetch delay that will be used when retrieving this URL right now.
+   */
+  public long getFetchDelay(WebURL webUrl) {
+    URI url = webUrl.getURI();
+    String host = url.getHost();
+    HostRequests target_time = nextFetchTimes.get(host);
+    if (target_time == null)
+      return 0;
+    
+    return target_time.nextFetchTime + target_time.penalty - System.currentTimeMillis();
+  }
 }

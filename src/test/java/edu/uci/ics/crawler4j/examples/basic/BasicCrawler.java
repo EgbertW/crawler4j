@@ -56,7 +56,7 @@ public class BasicCrawler extends WebCrawler {
    */
   @Override
   public void visit(Page page) {
-    int docid = page.getWebURL().getDocid();
+    long docid = page.getWebURL().getDocid();
     String url = page.getWebURL().getURL();
     String domain = page.getWebURL().getDomain();
     String path = page.getWebURL().getPath();

@@ -386,7 +386,7 @@ public void waitUntilFinish() {
    * @throws URISyntaxException invalid page url
    * @return The doc id assigned to theURL
    */
-  public int addSeed(String pageUrl) throws URISyntaxException {
+  public long addSeed(String pageUrl) throws URISyntaxException {
     return addSeed(pageUrl, -1);
   }
 
@@ -403,7 +403,7 @@ public void waitUntilFinish() {
    * @throws URISyntaxException on invalid page url
    * @return The doc ID assigned to the url
    */
-  public int addSeed(String pageUrl, int docId) throws URISyntaxException {
+  public long addSeed(String pageUrl, long docId) throws URISyntaxException {
     return addSeed(pageUrl, docId, (byte)0);
   }
     
@@ -429,7 +429,7 @@ public void waitUntilFinish() {
    * @throws URISyntaxException on invalid page url
    * @return The docId used / assigned for the seed URL
    */
-  public int addSeed(String pageUrl, int docId, byte priority) throws URISyntaxException {
+  public long addSeed(String pageUrl, long docId, byte priority) throws URISyntaxException {
     String canonicalUrl = URLCanonicalizer.getCanonicalURL(pageUrl);
     if (canonicalUrl == null) {
       logger.error("Invalid seed URL: {}", pageUrl);

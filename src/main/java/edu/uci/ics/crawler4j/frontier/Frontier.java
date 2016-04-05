@@ -26,11 +26,11 @@ import java.util.TreeSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.Environment;
 
 import edu.uci.ics.crawler4j.crawler.Configurable;
 import edu.uci.ics.crawler4j.crawler.CrawlConfig;
+import edu.uci.ics.crawler4j.crawler.WebCrawler;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.url.WebURL;
 
@@ -41,9 +41,6 @@ import edu.uci.ics.crawler4j.url.WebURL;
 public class Frontier extends Configurable {
   protected static final Logger logger = LoggerFactory.getLogger(Frontier.class);
   
-  private static final String DATABASE_NAME = "PendingURLsDB";
-  private static final int IN_PROCESS_RESCHEDULE_BATCH_SIZE = 100;
-
   /** Identifier for the InProgress queue: pages in progress by a thread */
   public static final int IN_PROGRESS_QUEUE = 1;
   /** Identifier for the WorkQueue: pages not yet claimed by any thread */
@@ -54,6 +51,8 @@ public class Frontier extends Configurable {
   protected WorkQueues workQueues;
 
   protected InProcessPagesDB inProcessPages;
+  
+  protected CrawlQueue queue;
 
   protected final Object mutex = new Object();
   protected final Object waitingList = new Object();
@@ -77,26 +76,10 @@ public class Frontier extends Configurable {
     super(config);
     this.counters = new Counters(env, config);
     this.docIdServer = docIdServer;
-    try {
-      workQueues = new WorkQueues(env, DATABASE_NAME, config.isResumableCrawling());
-      scheduledPages = counters.getValue(Counters.ReservedCounterNames.SCHEDULED_PAGES);
-      inProcessPages = new InProcessPagesDB(env, config.isResumableCrawling());
-      long numPreviouslyInProcessPages = inProcessPages.getLength();
-      if (numPreviouslyInProcessPages > 0) {
-        logger.info("Rescheduling {} URLs from previous crawl.", numPreviouslyInProcessPages);
-        scheduledPages -= numPreviouslyInProcessPages;
-        while (true) {
-          List<WebURL> urls = inProcessPages.shift(IN_PROCESS_RESCHEDULE_BATCH_SIZE);
-          if (urls.size() == 0) {
-            break;
-          }
-          scheduleAll(urls);
-        }
-      }
-    } catch (DatabaseException e) {
-      logger.error("Error while initializing the Frontier", e);
-      workQueues = null;
-    }
+    this.queue = new BerkeleyDBQueue(env);
+    this.queue.setCrawlConfiguration(config);
+    
+    scheduledPages = counters.getValue(Counters.ReservedCounterNames.SCHEDULED_PAGES);
   }
 
   /**
@@ -105,58 +88,16 @@ public class Frontier extends Configurable {
    * @param urls The list of URLs to schedule
    */
   public void scheduleAll(List<WebURL> urls) {
-    int maxPagesToFetch = config.getMaxPagesToFetch();
-    Iterator<WebURL> it = urls.iterator();
     synchronized (mutex) {
-      while (it.hasNext() && (maxPagesToFetch < 0 || scheduledPages <= maxPagesToFetch)) {
-        WebURL url = it.next();
-        doSchedule(url);
-      }
-      counters.setValue(Counters.ReservedCounterNames.SCHEDULED_PAGES, scheduledPages);
+      List<WebURL> rejects = queue.enqueue(urls);
+      scheduledPages += (urls.size() - rejects.size());
     }
+    
+    counters.setValue(Counters.ReservedCounterNames.SCHEDULED_PAGES, scheduledPages);
+    
     synchronized (waitingList) {
       waitingList.notifyAll();
     }
-  }
-
-  /**
-   * Private method that actually puts a new URL in the queue. It checks
-   * the DocID. If it is -1, it is assumed that this is a newly discovered URL 
-   * that should be crawled. If it has already been seen, it is skipped.
-   * 
-   * @param url The WebURL to schedule
-   * @return True if the URL was added to the queue, false otherwise.
-   */
-  private boolean doSchedule(WebURL url) {
-    if (!url.isHttp()) {
-      logger.warn("Not scheduling URL {} - Protocol {} not supported", url.getURL(), url.getProtocol());
-      return false;
-    }
-    
-    int maxPagesToFetch = config.getMaxPagesToFetch();
-    if (maxPagesToFetch >= 0 && scheduledPages >= maxPagesToFetch)
-      return false;
-      
-    if (url.getDocid() < 0) {
-      int docid = this.docIdServer.getNewUnseenDocID(url.getURL());
-      if (docid == -1)
-        return false;
-      url.setDocid(docid);
-    }
-    
-    // A URL without a seed doc ID is a seed of itself.
-    if (url.getSeedDocid() < 0) {
-      url.setSeedDocid(url.getDocid());
-    }
-      
-    try {
-      if (workQueues.put(url))
-          ++scheduledPages;
-    } catch (DatabaseException e) {
-      logger.error("Error while putting the url in the work queue", e);
-      return false;
-    }
-    return true;
   }
   
   /**
@@ -168,9 +109,16 @@ public class Frontier extends Configurable {
    */
   public boolean schedule(WebURL url) {
     boolean scheduled = false;
-    synchronized (mutex) {
-      if (scheduled = doSchedule(url))
-        counters.increment(Counters.ReservedCounterNames.SCHEDULED_PAGES);
+    try
+    {
+      synchronized (mutex) {
+        queue.enqueue(url);
+        ++scheduledPages;
+        scheduled = true;
+      }
+      counters.increment(Counters.ReservedCounterNames.SCHEDULED_PAGES);
+    } catch (RuntimeException e) {
+      logger.warn("URL {} was not enqueued: {}", url.getURL(), e.getMessage());
     }
     
     // Wake up threads
@@ -189,6 +137,7 @@ public class Frontier extends Configurable {
    * that are still will be crawled before actually clearing the database, so make
    * sure the crawler is running when executing this method.
    */
+  @Deprecated
   public void clearDocIDs() {
     while (true) {
       if (getQueueLength() > 0) {
@@ -220,46 +169,53 @@ public class Frontier extends Configurable {
    * 
    * @param seed_doc_id The docid of the seed URL to mark as finished.
    */
-  public void setSeedFinished(int seed_doc_id) {
+  public void setSeedFinished(long seed_doc_id) {
     synchronized (mutex) {
-      if (numOffspring(seed_doc_id) > 0)
-        finished_seeds.add(seed_doc_id);
+      queue.setSeedFinished(seed_doc_id);
     }
   }
   
-  public WebURL getNextURL(PageFetcher pageFetcher) {
-    long last_msg = 0;
-    int target_size = config.getFrontierQueueTargetSize();
-    int burst = 0;
-    
-    while (true) {
-      long sleep = 0;
+  public WebURL getNextURL(WebCrawler crawler, PageFetcher pageFetcher) {
+    while (true)
+    {
+      WebURL url;
       synchronized (mutex) {
-        if (isFinished)
-          return null;
-        
-        // Always attempt to keep a decent queue size
-        if (current_queue.size() < (0.9 * target_size) || burst > 0) {
-          int num_to_get = Math.max(burst,  (int)(1.1 * target_size) - current_queue.size());
-          List<WebURL> urls = workQueues.shift(num_to_get);
-          for (WebURL url : urls) {
-            if (inProcessPages.put(url))
-            {
-              current_queue.add(url);
-            }
-          }
-          if (burst > 0) {
-            if (urls.size() == 0) {
-              if (System.currentTimeMillis() - lastSleepNotification < 2000) {
-                logger.trace("Politeness delays are long, but no alternative websites are available from the queue");
-                lastSleepNotification = System.currentTimeMillis();
-              }
-              sleep += config.getPolitenessDelay();
-            }
-          }
-          burst = 0;
+        url = queue.getNextURL(crawler, pageFetcher);
+      }
+      
+      if (url == null) {
+        synchronized (waitingList) {
+          try {
+            waitingList.wait(config.getPolitenessDelay());
+          } catch (InterruptedException e) {}
+        }
+        continue;
+      }
+      
+      long t = pageFetcher.getFetchDelay(url);
+      if (t <= config.getPolitenessDelay())
+      {
+        // We're not crawling this page at this moment,
+        // so release it again.
+        synchronized (mutex) {
+          queue.abandon(crawler, url);
         }
         
+        try {
+          Thread.sleep(config.getPolitenessDelay());
+        } catch (InterruptedException e) {} // Don't care
+        continue;
+      }
+      
+      // Proper URL found, go crawl it!
+      return url;
+    }
+  }
+
+  private WebURL none(PageFetcher pageFetcher)
+  {
+    // TODO: Refactor this
+    
         // Skip URLs at the front of the queue that have already finished
         Iterator<WebURL> iter = current_queue.iterator();
         int num_removed = 0;
@@ -280,7 +236,7 @@ public class Frontier extends Configurable {
                 return url;
             }
             
-            setProcessed(url);
+            //setProcessed(url);
             iter.remove();
             ++num_removed;
         }
@@ -294,39 +250,8 @@ public class Frontier extends Configurable {
             current_queue.remove(url);
             return url;
           }
-          
-          long cur = System.currentTimeMillis();
-          if (cur > last_msg + 30000)
-          {
-              logger.debug("Work queue has size {} but timeouts are long. Waiting for more URLs to come in", current_queue.size());
-              last_msg = cur;
-          }
-          
-          // No URL can be crawled soon enough, just wait around to see
-          // if any better candidate results from current crawling efforts
-          sleep += 200;
-          burst = (int)(0.25 * target_size);
         }
-        else
-        {
-            long cur = System.currentTimeMillis();
-            if (cur > last_msg + 30000)
-            {
-                logger.debug("Work queue is empty. Waiting for more URLs to come in");
-                last_msg = cur;
-            }
-        }
-      }
-      
-      // Nothing available, wait for more
-      synchronized (waitingList) {
-        try {
-          waitingList.wait(sleep);
-        } catch (InterruptedException e)
-        {}
-        sleep = 0;
-      }
-    }
+        return null;
   }
   
   /**
@@ -336,42 +261,30 @@ public class Frontier extends Configurable {
    * @param webURL The URL to set as processed
    * @return True when this was the last offspring of the seed, false otherwise
    */
-  public boolean setProcessed(WebURL webURL) {
+  public boolean setProcessed(WebCrawler crawler, WebURL webURL) {
     counters.increment(Counters.ReservedCounterNames.PROCESSED_PAGES);
     synchronized (mutex) {
-      if (!inProcessPages.removeURL(webURL)) {
-        logger.warn("Could not remove: {} from list of processed pages.", webURL.getURL());
-      }
-      boolean isLast = numOffspring(webURL.getSeedDocid()) == 0;
-      if (isLast)
-          finished_seeds.remove(webURL.getSeedDocid());
-      return isLast;
+      queue.setFinishedURL(crawler, webURL);
+      return queue.getNumOffspring(webURL.getSeedDocid()) == 0;
     }
   }
 
-  public int numOffspring(Integer seedDocid) {
+  public long numOffspring(Long seedDocid) {
     synchronized (mutex) {
-        return workQueues.getSeedCount(seedDocid) + inProcessPages.getSeedCount(seedDocid);
+      return queue.getNumOffspring(seedDocid);
     }
   }
   
   public long getQueueLength() {
-    return getQueueLength(WORK_QUEUE);
-  }
-
-  public long getQueueLength(int type) {
     synchronized (mutex) {
-      int length = 0;
-      if ((type & WORK_QUEUE) == WORK_QUEUE)
-          length += workQueues.getLength();
-      if ((type & IN_PROGRESS_QUEUE) == IN_PROGRESS_QUEUE)
-          length += inProcessPages.getLength();
-      return length;
+      return queue.getQueueSize();
     }
   }
 
   public long getNumberOfAssignedPages() {
-    return getQueueLength(IN_PROGRESS_QUEUE);
+    synchronized (mutex) {
+      return queue.getNumInProgress();
+    }
   }
 
   public long getNumberOfProcessedPages() {
@@ -383,11 +296,7 @@ public class Frontier extends Configurable {
   }
 
   public void close() {
-    workQueues.close();
     counters.close();
-    if (inProcessPages != null) {
-      inProcessPages.close();
-    }
   }
 
   public void finish() {
