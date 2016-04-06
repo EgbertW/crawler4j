@@ -17,11 +17,14 @@
 
 package edu.uci.ics.crawler4j.frontier;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +36,7 @@ import edu.uci.ics.crawler4j.crawler.CrawlConfig;
 import edu.uci.ics.crawler4j.crawler.WebCrawler;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.url.WebURL;
+import edu.uci.ics.crawler4j.util.IterateAction;
 
 /**
  * @author Yasser Ganjisaffar
@@ -48,10 +52,6 @@ public class Frontier extends Configurable {
   /** convenience identifier for both queues: IN_PROGRESS_QUEUE | WORK_QUEUE */
   public static final int BOTH_QUEUES = IN_PROGRESS_QUEUE | WORK_QUEUE;
 
-  protected WorkQueues workQueues;
-
-  protected InProcessPagesDB inProcessPages;
-  
   protected CrawlQueue queue;
 
   protected final Object mutex = new Object();
@@ -70,7 +70,7 @@ public class Frontier extends Configurable {
   protected Set<WebURL> current_queue = new TreeSet<WebURL>();
   
   /** A list of seeds that have finished, and so their offspring should be skipped */
-  protected Set<Integer> finished_seeds = new HashSet<Integer>();
+  protected Set<Long> finished_seeds = new HashSet<Long>();
 
   public Frontier(Environment env, CrawlConfig config, DocIDServer docIdServer) {
     super(config);
@@ -137,7 +137,6 @@ public class Frontier extends Configurable {
    * that are still will be crawled before actually clearing the database, so make
    * sure the crawler is running when executing this method.
    */
-  @Deprecated
   public void clearDocIDs() {
     while (true) {
       if (getQueueLength() > 0) {
@@ -159,6 +158,35 @@ public class Frontier extends Configurable {
     }
   }
   
+  /** 
+   * Remove all URls from a specific host from the docidserver. This 
+   * will enable them to be crawled again, if they are added to the queue again.
+   * 
+   * @param host The host to remove
+   */
+  public void removeHostDocids(String host)
+  {
+    final String host_to_remove = host.toLowerCase();
+    docIdServer.iterate(new Function<String, IterateAction>() {
+      public IterateAction apply(String url) {
+        try {
+          URL cur_url = new URL(url);
+          String cur_host = cur_url.getHost().toLowerCase();
+          if (cur_host.equals(host_to_remove))
+            return IterateAction.REMOVE;
+        }
+        catch (MalformedURLException e)
+        {
+          // We don't want any malformed URLs in there. It shouldn't have
+          // happened in th first place, but clean it up now anyway.
+          logger.error("Invalid URL in the DocIDServer: {}", url);
+          return IterateAction.REMOVE;
+        }
+        return IterateAction.CONTINUE;
+      }
+    });
+  }
+  
   /**
    * Add a seed docid that has finished. This is used to determine
    * whether upcoming URLs still need to be crawled. This could be
@@ -171,7 +199,8 @@ public class Frontier extends Configurable {
    */
   public void setSeedFinished(long seed_doc_id) {
     synchronized (mutex) {
-      queue.setSeedFinished(seed_doc_id);
+      finished_seeds.add(seed_doc_id);
+      queue.removeOffspring(seed_doc_id);
     }
   }
   
@@ -180,6 +209,17 @@ public class Frontier extends Configurable {
     {
       WebURL url;
       synchronized (mutex) {
+        if (!finished_seeds.isEmpty()) {
+          // Handle one ended seed if there are any
+          Iterator<Long> iter = finished_seeds.iterator();
+          long finished_seed = iter.next();
+          long num_offspring = queue.getNumOffspring(finished_seed);
+          if (num_offspring == 0) {
+            crawler.handleSeedEnd(finished_seed);
+            iter.remove();
+          }
+        }
+        
         url = queue.getNextURL(crawler, pageFetcher);
       }
       
@@ -187,23 +227,8 @@ public class Frontier extends Configurable {
         synchronized (waitingList) {
           try {
             waitingList.wait(config.getPolitenessDelay());
-          } catch (InterruptedException e) {}
+          } catch (InterruptedException e) {} // Don't care
         }
-        continue;
-      }
-      
-      long t = pageFetcher.getFetchDelay(url);
-      if (t <= config.getPolitenessDelay())
-      {
-        // We're not crawling this page at this moment,
-        // so release it again.
-        synchronized (mutex) {
-          queue.abandon(crawler, url);
-        }
-        
-        try {
-          Thread.sleep(config.getPolitenessDelay());
-        } catch (InterruptedException e) {} // Don't care
         continue;
       }
       
@@ -212,60 +237,17 @@ public class Frontier extends Configurable {
     }
   }
 
-  private WebURL none(PageFetcher pageFetcher)
-  {
-    // TODO: Refactor this
-    
-        // Skip URLs at the front of the queue that have already finished
-        Iterator<WebURL> iter = current_queue.iterator();
-        int num_removed = 0;
-        while (iter.hasNext())
-        {
-            WebURL url = iter.next();
-            if (!finished_seeds.contains(url.getSeedDocid()))
-                break;
-            
-            // Seed is finished, so we skip it. It needs to be removed, though.
-            if (numOffspring(url.getSeedDocid()) == 1)
-            {
-                // This is the very last element in the queue. We need to
-                // return it to the WebCrawler in order to make sure that
-                // handleSeedEnd can be called.
-                current_queue.remove(url);
-                url.setSeedEnded(true);
-                return url;
-            }
-            
-            //setProcessed(url);
-            iter.remove();
-            ++num_removed;
-        }
-        if (num_removed > 0)
-            logger.info("Removed {} elements from the crawl queue because their seed was marked as finished", num_removed);
-        
-        if (!current_queue.isEmpty())
-        {
-          WebURL url = pageFetcher.getBestURL(current_queue, config.getPolitenessDelay());
-          if (url != null) {
-            current_queue.remove(url);
-            return url;
-          }
-        }
-        return null;
-  }
-  
   /**
-   * Set the page as processed and return true if, as a consequence, there is no
-   * more offspring left of the seed that eventually resulted in this document.
+   * Set the page as processed.
    * 
    * @param webURL The URL to set as processed
-   * @return True when this was the last offspring of the seed, false otherwise
    */
-  public boolean setProcessed(WebCrawler crawler, WebURL webURL) {
+  public void setProcessed(WebCrawler crawler, WebURL webURL) {
     counters.increment(Counters.ReservedCounterNames.PROCESSED_PAGES);
     synchronized (mutex) {
       queue.setFinishedURL(crawler, webURL);
-      return queue.getNumOffspring(webURL.getSeedDocid()) == 0;
+      if (queue.getNumOffspring(webURL.getSeedDocid()) == 0)
+        finished_seeds.add(webURL.getSeedDocid());
     }
   }
 

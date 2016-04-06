@@ -85,18 +85,20 @@ public interface CrawlQueue {
     public long getNumInProgress();
     
     /**
-     * Return the amount of URLs in the queue for a specific seed offspring
+     * Return the amount of URLs in the queue or in progress for a specific seed offspring
      * 
      * @param seed_doc_id
      */
     public long getNumOffspring(long seed_doc_id);
     
     /**
-     * Declare the seed as finished -> no more URLs from this seed will
-     * be handed out. However, URLs that have been handed out before will
-     * most likely still be crawled.
+     * Remove all offspring of the given seed. This does not
+     * guarantee that no URLs will be returned with this URL however;
+     * if a assigned URL is abandoned, it will be returned to the queue,
+     * and may be returned at a later moment. This should be limited
+     * to the amount of crawlers there are.
      * 
-     * @param seed_doc_id
+     * @param seed_doc_id The docid of the seed for which to remove the offspring
      */
-    public void setSeedFinished(long seed_doc_id);
+    public void removeOffspring(long seed_doc_id);
 }

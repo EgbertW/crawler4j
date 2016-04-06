@@ -17,11 +17,26 @@
 
 package edu.uci.ics.crawler4j.util;
 
-
 /**
  * @author Yasser Ganjisaffar
  */
 public class Util {
+  
+  public static class Reference<T> {
+    T val;
+    
+    public Reference(T val) {
+      this.val = val;
+    }
+    
+    public T assign(T val) {
+      return this.val = val;
+    }
+    
+    public T get() {
+      return val;
+    }
+  }
 
   public static byte[] long2ByteArray(long l) {
     byte[] array = new byte[8];

@@ -306,11 +306,7 @@ public class WebCrawler implements Runnable {
         } finally {
           // Handle the finishing of the URL in the finally clause
           // to make sure it is ALWAYS executed, no matter what.
-          boolean seedEnded = frontier.setProcessed(this, backup);
-            
-          // Now, we can run the handleSeedEnd if this is necessary
-          if (seedEnded)
-            handleSeedEnd(backup.getSeedDocid());
+          frontier.setProcessed(this, backup);
         }
         if (myController.isShuttingDown()) {
           logger.info("Exiting because of controller shutdown.");
@@ -515,6 +511,10 @@ public class WebCrawler implements Runnable {
 
   public Thread getThread() {
     return myThread;
+  }
+  
+  public long getId() {
+    return myThread.getId();
   }
 
   public void setThread(Thread myThread) {
