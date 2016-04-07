@@ -394,7 +394,7 @@ public void waitUntilFinish() {
    * Adds a new seed URL with a priority of 0. A seed URL is a URL that is fetched
    * by the crawler to extract new URLs in it and follow them for crawling.
    * 
-   * @see #addSeed(String, int, byte)
+   * @see #addSeed(String, long, byte)
    * 
    * @param pageUrl
    *            the URL of the seed

@@ -23,7 +23,7 @@ package edu.uci.ics.crawler4j.util;
 public class Util {
   
   public static class Reference<T> {
-    T val;
+    public T val;
     
     public Reference(T val) {
       this.val = val;

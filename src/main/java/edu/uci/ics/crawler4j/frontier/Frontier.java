@@ -19,6 +19,7 @@ package edu.uci.ics.crawler4j.frontier;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -76,8 +77,7 @@ public class Frontier extends Configurable {
     super(config);
     this.counters = new Counters(env, config);
     this.docIdServer = docIdServer;
-    this.queue = new BerkeleyDBQueue(env);
-    this.queue.setCrawlConfiguration(config);
+    this.queue = new BerkeleyDBQueue(env, config);
     
     scheduledPages = counters.getValue(Counters.ReservedCounterNames.SCHEDULED_PAGES);
   }
@@ -89,7 +89,11 @@ public class Frontier extends Configurable {
    */
   public void scheduleAll(List<WebURL> urls) {
     synchronized (mutex) {
-      List<WebURL> rejects = queue.enqueue(urls);
+      List<WebURL> rejects = new ArrayList<WebURL>();
+      for (WebURL url : urls)
+        if (!doSchedule(url))
+          rejects.add(url);
+      
       scheduledPages += (urls.size() - rejects.size());
     }
     
@@ -101,24 +105,53 @@ public class Frontier extends Configurable {
   }
   
   /**
+   * Private method that actually puts a new URL in the queue. It checks
+   * the DocID. If it is -1, it is assumed that this is a newly discovered URL 
+   * that should be crawled. If it has already been seen, it is skipped.
+   * 
+   * @param url The WebURL to schedule
+   * @return True if the URL was added to the queue, false otherwise.
+   */
+  private boolean doSchedule(WebURL url) {
+    if (!url.isHttp()) {
+      logger.warn("Not scheduling URL {} - Protocol {} not supported", url.getURL(), url.getProtocol());
+      return false;
+    }
+
+    if (url.getDocid() < 0) {
+      long docid = this.docIdServer.getNewUnseenDocID(url.getURL());
+      if (docid == -1)
+        return false;
+      url.setDocid(docid);
+    }
+
+    // A URL without a seed doc ID is a seed of itself.
+    if (url.getSeedDocid() < 0) {
+      url.setSeedDocid(url.getDocid());
+    }
+
+    try {
+      queue.enqueue(url);
+      ++scheduledPages;
+    } catch (RuntimeException e) {
+      logger.error("Error while putting the url in the work queue", e);
+      return false;
+    }
+    
+    return true;
+  }
+  
+  /**
    * Schedule a WebURL. It will use doSchedule to schedule it and update the counter values.
    * 
    * @param url The WebURL to schedule.
-   * @see #doSchedule(WebURL url)
    * @return If the URL was scheduled
    */
   public boolean schedule(WebURL url) {
     boolean scheduled = false;
-    try
-    {
-      synchronized (mutex) {
-        queue.enqueue(url);
-        ++scheduledPages;
-        scheduled = true;
-      }
-      counters.increment(Counters.ReservedCounterNames.SCHEDULED_PAGES);
-    } catch (RuntimeException e) {
-      logger.warn("URL {} was not enqueued: {}", url.getURL(), e.getMessage());
+    synchronized (mutex) {
+      if (scheduled = doSchedule(url))
+        counters.increment(Counters.ReservedCounterNames.SCHEDULED_PAGES);
     }
     
     // Wake up threads
@@ -240,6 +273,7 @@ public class Frontier extends Configurable {
   /**
    * Set the page as processed.
    * 
+   * @param crawler The crawler that has processed the URL
    * @param webURL The URL to set as processed
    */
   public void setProcessed(WebCrawler crawler, WebURL webURL) {

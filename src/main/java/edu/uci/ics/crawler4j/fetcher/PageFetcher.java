@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.net.URI;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -201,81 +200,6 @@ public class PageFetcher extends Configurable {
   
   public long getDefaultPolitenessDelay() {
     return config.getPolitenessDelay();
-  }
-  
-  /**
-   * Find the URL with the lowest nextFetchTime, to optimally utilize the
-   * available threads while respecting the politeness delay.
-   * 
-   * @param urls A collection of URLs from which one will be selected
-   * @param max The maximum number of milliseconds that the URL should be in
-   *            the future. If no URL matches this criterion, null will be returned
-   * @return The best URL, or null if no URL has a politeness delay shorter than max
-   */
-  public WebURL getBestURL(Collection<WebURL> urls, long max) {
-    // Return null if there's nothing to choose from
-    if (urls.size() == 0)
-      return null;
-      
-    long now = System.currentTimeMillis();
-    Long min_delay = null;
-    WebURL min_url = null;
-    HostRequests best_req = null;
-    synchronized (nextFetchTimes) {
-      for (WebURL webUrl : urls) {
-        URI url = webUrl.getURI();
-        String host = url.getHost();
-        HostRequests target_time = nextFetchTimes.get(host);
-        if (target_time == null) {
-          // Currently, no fetch time is available. This makes a good
-          // candidate. Do add a new entry for HostRequests, because
-          // the penalty needs to be stored to avoid selecting it again.
-          target_time = new HostRequests();
-          target_time.nextFetchTime = now;
-          target_time.penalty = target_time.delay;
-          nextFetchTimes.put(host, target_time);
-          return webUrl;
-        }
-          
-        long delay = target_time.nextFetchTime + target_time.penalty - now;
-          
-        // A negative time or 0 time is instant crawl
-        if (delay <= 0) {
-          target_time.penalty += target_time.delay;
-          return webUrl;
-        }
-          
-        if (min_delay == null || delay < min_delay) {
-          min_delay = delay;
-          min_url = webUrl;
-          best_req = target_time;
-        }
-      }
-      
-      // Do not return any URL when the max is exceeded
-      if (min_delay != null && min_delay > max)
-      {
-          long cur = System.currentTimeMillis();
-          if (cur > delay_exceeded_last_time + 30000)
-          {
-              logger.info("Best next-fetch-time of {}ms exceeds max-next-fetch-time of {}ms", min_delay, max);
-              delay_exceeded_last_time = cur;
-          }
-          return null;
-      }
-      
-      // Add the politeness delay to this host already as it's probably going to
-      // be crawled which makes it less attractive for a following request to also
-      // crawl from the same host
-      if (best_req != null)
-          best_req.penalty += best_req.delay;
-    }
-    
-    // There should be a 'best' URL always at this point
-    assert(min_url != null);
-    
-    // Return the best if one was found
-    return min_url;
   }
   
   protected void enforcePolitenessDelay(URL url) {
@@ -539,18 +463,37 @@ public class PageFetcher extends Configurable {
   }
 
   /**
-   * Get the current delay involved in fetching the specified URL
+   * Obtain a list of all registered hosts with the next fetch times, including
+   * the penalty based on previous selection of this host.
    * 
-   * @param webUrl The URL to be crawled
-   * @return The fetch delay that will be used when retrieving this URL right now.
+   * @return A map of String to Long pairs mapping hostnames to next fetch times
    */
-  public long getFetchDelay(WebURL webUrl) {
-    URI url = webUrl.getURI();
-    String host = url.getHost();
-    HostRequests target_time = nextFetchTimes.get(host);
-    if (target_time == null)
-      return 0;
+  public Map<String, Long> getHostMap() {
+    synchronized (nextFetchTimes) {
+      Map<String, Long> hostmap = new HashMap<String, Long>();
     
-    return target_time.nextFetchTime + target_time.penalty - System.currentTimeMillis();
+      for (Map.Entry<String, HostRequests> entry : nextFetchTimes.entrySet()) {
+        HostRequests el = entry.getValue();
+        hostmap.put(entry.getKey(), el.nextFetchTime + el.penalty);
+      }
+    
+      return hostmap;
+    }
+  }
+  
+  public void select(WebURL webURL) {
+    URI url = webURL.getURI();
+    String host = url.getHost();
+    
+    HostRequests target_time = nextFetchTimes.get(host);
+    
+    if (target_time == null) {
+      target_time = new HostRequests();
+      target_time.nextFetchTime = System.currentTimeMillis();
+      target_time.penalty = target_time.delay;
+      nextFetchTimes.put(host, new HostRequests());
+    } else {
+      target_time.penalty += target_time.delay;
+    }
   }
 }

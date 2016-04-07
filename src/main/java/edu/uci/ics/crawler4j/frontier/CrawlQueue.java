@@ -23,9 +23,9 @@ public interface CrawlQueue {
     public void enqueue(WebURL url);
     
     /**
-     * Append a new URL to the queue.
+     * Append a list of new URLs to the queue.
      * 
-     * @param url The URL to enqueue
+     * @param urls The URLs to enqueue
      * 
      * @return A list of rejected URLS. Reasons for rejection can be things
      * such as duplicate URLs, invalid URLs, maximum queue size reached, etc.
@@ -87,7 +87,8 @@ public interface CrawlQueue {
     /**
      * Return the amount of URLs in the queue or in progress for a specific seed offspring
      * 
-     * @param seed_doc_id
+     * @param seed_doc_id The seed doc id for which to return the number of offspring
+     * @return The number of offspring for the seed
      */
     public long getNumOffspring(long seed_doc_id);
     

@@ -1,6 +1,7 @@
 package edu.uci.ics.crawler4j.frontier;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 import org.slf4j.Logger;
@@ -9,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.Environment;
 
+import edu.uci.ics.crawler4j.crawler.CrawlConfig;
 import edu.uci.ics.crawler4j.crawler.WebCrawler;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.url.WebURL;
@@ -42,9 +44,12 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
    * Initialize the queue and reload stored elements from disk.
    * 
    * @param env The BerkeleyDB environment
+   * @param config The crawl configuration, mainly for the politeness delay parameter
    */
-  public BerkeleyDBQueue(Environment env)
+  public BerkeleyDBQueue(Environment env, CrawlConfig config)
   {
+    setCrawlConfiguration(config);;
+    logger.error("Setting up BerkeleyDBQueue as crawl queue");
     crawl_queue_db = new URLQueue(env, "CrawlQueue", config.isResumableCrawling());
     in_progress_db = new URLQueue(env, "InProgress", config.isResumableCrawling());
     
@@ -74,44 +79,77 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
 
   @Override
   public WebURL getNextURL(WebCrawler crawler, PageFetcher fetcher) {
-    if (urls_in_progress.get(crawler.getId()) != null)
-      throw new RuntimeException("Crawler " + crawler.getId() + " has not finished its previous URL");
+    WebURL oldURL = getAssignedURL(crawler);
+    if (oldURL != null)
+      throw new RuntimeException("Crawler " + crawler.getMyId() + " has not finished its previous URL: " + oldURL.getURL() + " (" + oldURL.getDocid() + ")");
     
-    final Reference<Long> shortest_delay = new Reference<Long>(Long.MAX_VALUE);
+    final Reference<Long> best_time = new Reference<Long>(Long.MAX_VALUE);
     final Reference<WebURL> best_url = new Reference<WebURL>(null);
+    final Reference<Integer> counter = new Reference<Integer>(0);
+    final long max_end_time = System.currentTimeMillis() + Math.max(100, config.getPolitenessDelay());
+    final Map<String, Long> delays = fetcher.getHostMap();
     
+    long st = System.currentTimeMillis();
     crawl_queue_db.iterate(new Function<WebURL, IterateAction>() {
+      long now = System.currentTimeMillis();
+      
       public IterateAction apply(WebURL url) {
-        long delay = fetcher.getFetchDelay(url);
-        if (delay < shortest_delay.get()) {
-          best_url.assign(url);
-          shortest_delay.assign(delay);
+        ++counter.val;
+        String host = url.getURI().getHost();
+        if (!delays.containsKey(host)) {
+          best_time.val = 0l;
+          best_url.val = url;
+          return IterateAction.RETURN;
         }
-
-        // We won't find any better URL than this, so stop.
-        if (delay == 0)
-          return IterateAction.REMOVE_AND_RETURN;
+        
+        Long t = delays.get(host);
+        if (t < best_time.get()) {
+          best_time.val = t;
+          best_url.val = url;
+        }
+        
+        // Only update time every 1000 iterations to save syscalls
+        if (counter.val % 1000 == 0) {
+          now = System.currentTimeMillis();
           
+          // Don't try for to find something for longer than the politeness delay
+          // as that kinda defeats the purpose. If any match is now int the past,
+          // we're also done.
+          if (max_end_time <= now || best_time.val < now)
+            return IterateAction.RETURN;
+          
+          if (best_time.val < now)
+            return IterateAction.RETURN;
+        }
+        
         return IterateAction.CONTINUE;
       }
     });
 
-    Long delay = shortest_delay.get();
-    WebURL best = best_url.get();
-    if (delay < config.getPolitenessDelay()) {
+    long dur = System.currentTimeMillis() - st;
+    if (dur > config.getPolitenessDelay() * 0.5)
+      logger.info("Considered {} URLs in {}ms (limit: {})", counter.val, dur, config.getPolitenessDelay());
+    
+    Long delay = best_time.val - System.currentTimeMillis();
+    WebURL best = best_url.val;
+    if (best == null)
+      return null;
+    
+    if (best != null && delay < config.getPolitenessDelay()) {
       crawl_queue_db.removeURL(best);
       assign(best, crawler);
       in_progress_db.put(best);
-      
+      fetcher.select(best);
       return best;
     }
     
-    return best;
+    return null;
   }
 
   @Override
   public void abandon(WebCrawler crawler, WebURL url) {
     unassign(url, crawler);
+    in_progress_db.removeURL(url);
     crawl_queue_db.put(url);
   }
 

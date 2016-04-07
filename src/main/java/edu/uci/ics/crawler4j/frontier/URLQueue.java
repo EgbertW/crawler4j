@@ -431,7 +431,7 @@ public class URLQueue {
   /**
    * Remove all offspring of the given seed docid
    * 
-   * @param seed_doc_id
+   * @param seed_doc_id The seed for which to remove the offspring
    * @return The number of elements removed
    */
   public int removeOffspring(long seed_doc_id) {
@@ -485,7 +485,7 @@ public class URLQueue {
         if (removed && webUrl.getSeedDocid() >= 0)
           seedDecrease(webUrl.getSeedDocid());
         else
-          throw new RuntimeException("URL " + webUrl.getURL() + " was not present in list of processed pages.");
+          throw new RuntimeException("URL " + webUrl.getURL() + " was not present in list of processed pages. " + (removed ? "true" : "false") + " seeddocid: " + webUrl.getSeedDocid());
       }
     }
     return false;
