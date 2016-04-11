@@ -107,9 +107,9 @@ public interface CrawlQueue {
     /**
      * Reassign a URL from an old thread to a new thread
      * 
-     * @param oldthread
-     * @param newthread
-     * @return The reassigned URL
+     * @param oldthread The thread whose URL needs to be reassigned
+     * @param newthread The new thread that the URL will be assigned to
+     * @return The reassigned URL, null if none was assigned.
      */
     public WebURL reassign(Thread oldthread, Thread newthread);
 }
