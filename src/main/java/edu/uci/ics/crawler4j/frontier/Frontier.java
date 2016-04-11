@@ -333,4 +333,10 @@ public class Frontier extends Configurable {
           r.run();
       }
   }
+
+  public void reassign(Thread oldthread, Thread newthread) {
+    synchronized (mutex) {
+      queue.reassign(oldthread, newthread);
+    }
+  }
 }

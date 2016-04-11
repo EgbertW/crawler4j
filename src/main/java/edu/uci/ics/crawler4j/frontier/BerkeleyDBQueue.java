@@ -67,9 +67,12 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
   }
   
   @Override
-  public void enqueue(WebURL url) {
-    if (!crawl_queue_db.put(url))
-      throw new RuntimeException("Failed to add element to the list");
+  public boolean enqueue(WebURL url) {
+    if (!crawl_queue_db.put(url)) {
+      last_error = "Duplicate URL";
+      return false;
+    }
+    return true;
   }
   
   @Override

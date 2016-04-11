@@ -250,12 +250,13 @@ public class CrawlController extends Configurable {
                     if (!shuttingDown) {
                       logger.info("Thread {} was dead, I'll recreate it", i);
                       T crawler = crawlerFactory.newInstance();
-                      thread = new Thread(crawler, "Crawler " + (i + 1));
+                      Thread newthread = new Thread(crawler, "Crawler " + (i + 1));
                       threads.remove(i);
-                      threads.add(i, thread);
+                      threads.add(i, newthread);
                       T oldCrawler = crawlers.get(i);
                       crawler.setThread(thread);
                       crawler.init(i + 1, controller);
+                      frontier.reassign(thread, newthread);
                       crawler.resume(oldCrawler.extractAssignedURL());
                       thread.start();
                       crawlers.remove(i);

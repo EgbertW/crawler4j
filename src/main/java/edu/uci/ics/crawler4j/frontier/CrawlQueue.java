@@ -19,8 +19,9 @@ public interface CrawlQueue {
      * Append a new URL to the queue.
      * 
      * @param url The URL to enqueue
+     * @return True if the URL was added, false if it was already on the list or rejected
      */
-    public void enqueue(WebURL url);
+    public boolean enqueue(WebURL url);
     
     /**
      * Append a list of new URLs to the queue.
@@ -102,4 +103,13 @@ public interface CrawlQueue {
      * @param seed_doc_id The docid of the seed for which to remove the offspring
      */
     public void removeOffspring(long seed_doc_id);
+
+    /**
+     * Reassign a URL from an old thread to a new thread
+     * 
+     * @param oldthread
+     * @param newthread
+     * @return The reassigned URL
+     */
+    public WebURL reassign(Thread oldthread, Thread newthread);
 }

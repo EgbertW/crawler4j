@@ -78,4 +78,15 @@ public abstract class AbstractCrawlQueue implements CrawlQueue {
     urls_in_progress.remove(crawler.getId());
     logger.debug("Removing assignment of URL {} ({}) to crawler {}", url.getURL(), url.getDocid(), crawler.getMyId());
   }
+  
+  @Override
+  public WebURL reassign(Thread oldthread, Thread newthread) {
+    WebURL prev = urls_in_progress.get(oldthread.getId());
+    
+    if (prev != null) {
+      urls_in_progress.remove(oldthread.getId());
+      urls_in_progress.put(newthread.getId(), prev);
+    }
+    return prev;
+  }
 }
