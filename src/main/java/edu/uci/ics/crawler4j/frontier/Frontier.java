@@ -25,7 +25,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +37,7 @@ import edu.uci.ics.crawler4j.crawler.WebCrawler;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.IterateAction;
+import edu.uci.ics.crawler4j.util.Processor;
 
 /**
  * @author Yasser Ganjisaffar
@@ -200,7 +200,7 @@ public class Frontier extends Configurable {
   public void removeHostDocids(String host)
   {
     final String host_to_remove = host.toLowerCase();
-    docIdServer.iterate(new Function<String, IterateAction>() {
+    docIdServer.iterate(new Processor<String, IterateAction>() {
       public IterateAction apply(String url) {
         try {
           URL cur_url = new URL(url);

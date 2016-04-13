@@ -17,8 +17,6 @@
 
 package edu.uci.ics.crawler4j.frontier;
 
-import java.util.function.Function;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +32,7 @@ import com.sleepycat.je.Transaction;
 import edu.uci.ics.crawler4j.crawler.Configurable;
 import edu.uci.ics.crawler4j.crawler.CrawlConfig;
 import edu.uci.ics.crawler4j.util.IterateAction;
+import edu.uci.ics.crawler4j.util.Processor;
 import edu.uci.ics.crawler4j.util.Util;
 
 /**
@@ -168,10 +167,10 @@ public class DocIDServer extends Configurable {
    * that can then decide whether to remove, return, remove and return or continue
    * with the iteration.
    * 
-   * @param callback An object on which the apply function will be called for each element
+   * @param processor An object on which the apply function will be called for each element
    * @return The url for which RETURN or REMOVE_AND_RETURN was indicated, or null if that did not happen
    */
-  public String iterate(Function<String, IterateAction> callback) {
+  public String iterate(Processor<String, IterateAction> processor) {
     synchronized (mutex) {
       DatabaseEntry key = new DatabaseEntry();
       DatabaseEntry value = new DatabaseEntry();
@@ -182,7 +181,7 @@ public class DocIDServer extends Configurable {
         OperationStatus result = cursor.getFirst(key, value,  null);
         while (result == OperationStatus.SUCCESS) {
           url = new String(value.getData());
-          IterateAction action = callback.apply(url);
+          IterateAction action = processor.apply(url);
           
           if (action == IterateAction.REMOVE || action == IterateAction.REMOVE_AND_RETURN)
           {

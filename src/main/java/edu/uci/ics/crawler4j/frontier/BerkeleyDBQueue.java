@@ -2,7 +2,6 @@ package edu.uci.ics.crawler4j.frontier;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +14,7 @@ import edu.uci.ics.crawler4j.crawler.WebCrawler;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.IterateAction;
+import edu.uci.ics.crawler4j.util.Processor;
 import edu.uci.ics.crawler4j.util.Util.Reference;
 
 /**
@@ -93,7 +93,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     final Map<String, Long> delays = fetcher.getHostMap();
     
     long st = System.currentTimeMillis();
-    crawl_queue_db.iterate(new Function<WebURL, IterateAction>() {
+    crawl_queue_db.iterate(new Processor<WebURL, IterateAction>() {
       long now = System.currentTimeMillis();
       
       public IterateAction apply(WebURL url) {

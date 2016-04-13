@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
@@ -34,6 +33,7 @@ import com.sleepycat.je.Transaction;
 
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.IterateAction;
+import edu.uci.ics.crawler4j.util.Processor;
 import edu.uci.ics.crawler4j.util.Util;
 
 /**
@@ -375,7 +375,7 @@ public class URLQueue {
    * @param callback The callback object that gets all the elements
    * @return A WebURL for which REMOVE_AND_RETURN or RETURN was returned, or null if that did not happen.
    */
-  public WebURL iterate(Function<WebURL, IterateAction> callback) {
+  public WebURL iterate(Processor<WebURL, IterateAction> callback) {
     synchronized (mutex) {
       DatabaseEntry key = new DatabaseEntry();
       DatabaseEntry value = new DatabaseEntry();
@@ -418,7 +418,7 @@ public class URLQueue {
    */
   public List<WebURL> getDump() {
     List<WebURL> list = new ArrayList<WebURL>();
-    iterate(new Function<WebURL, IterateAction>() {
+    iterate(new Processor<WebURL, IterateAction>() {
       public IterateAction apply(WebURL url) {
         list.add(url);
         return IterateAction.CONTINUE;
@@ -436,7 +436,7 @@ public class URLQueue {
    */
   public int removeOffspring(long seed_doc_id) {
     final Util.Reference<Integer> num_removed = new Util.Reference<Integer>(0);
-    iterate(new Function<WebURL, IterateAction>() {
+    iterate(new Processor<WebURL, IterateAction>() {
       @Override
       public IterateAction apply(WebURL url) {
         if (url.getSeedDocid() == seed_doc_id) {
