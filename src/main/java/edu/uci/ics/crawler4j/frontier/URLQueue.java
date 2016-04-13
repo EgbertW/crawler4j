@@ -417,7 +417,7 @@ public class URLQueue {
    * @return A list of all URLs in the database.
    */
   public List<WebURL> getDump() {
-    List<WebURL> list = new ArrayList<WebURL>();
+    final List<WebURL> list = new ArrayList<WebURL>();
     iterate(new Processor<WebURL, IterateAction>() {
       public IterateAction apply(WebURL url) {
         list.add(url);
@@ -434,7 +434,7 @@ public class URLQueue {
    * @param seed_doc_id The seed for which to remove the offspring
    * @return The number of elements removed
    */
-  public int removeOffspring(long seed_doc_id) {
+  public int removeOffspring(final long seed_doc_id) {
     final Util.Reference<Integer> num_removed = new Util.Reference<Integer>(0);
     iterate(new Processor<WebURL, IterateAction>() {
       @Override
