@@ -180,7 +180,7 @@ public class DocIDServer extends Configurable {
       try (Cursor cursor = docIDsDB.openCursor(txn, null)) {
         OperationStatus result = cursor.getFirst(key, value,  null);
         while (result == OperationStatus.SUCCESS) {
-          url = new String(value.getData());
+          url = new String(key.getData());
           IterateAction action = processor.apply(url);
           
           if (action == IterateAction.REMOVE || action == IterateAction.REMOVE_AND_RETURN)
