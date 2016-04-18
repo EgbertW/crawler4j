@@ -326,6 +326,5 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
         return IterateAction.CONTINUE;
       }
     });
-    
   }
 }

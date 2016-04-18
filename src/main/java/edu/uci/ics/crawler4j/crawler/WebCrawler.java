@@ -479,7 +479,7 @@ public class WebCrawler implements Runnable {
               } else {
                 logger.debug("Not visiting: {} as per the server's \"robots.txt\" policy", webURL.getURL());
               }
-            } else if (isHttp) {
+            } else if (!isHttp) {
               logger.debug("Not visiting: {} - Protocol {} not supported", webURL.getURL(), webURL.getProtocol());
             } else {
               logger.debug("Not visiting: {} as per your \"shouldVisit\" policy", webURL.getURL());
