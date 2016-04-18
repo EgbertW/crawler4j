@@ -24,6 +24,8 @@ import java.net.URISyntaxException;
 import com.sleepycat.persist.model.Entity;
 import com.sleepycat.persist.model.PrimaryKey;
 
+import edu.uci.ics.crawler4j.frontier.URLQueue;
+
 /**
  * @author Yasser Ganjisaffar
  */
@@ -49,6 +51,9 @@ public class WebURL implements Serializable, Comparable<WebURL> {
   private byte priority = 0;
   private String tag;
   private boolean seedEnded = false;
+  
+  private byte [] host_previous_url = null;
+  private byte [] host_next_url = null;
 
   /** Copy constructor
    * 
@@ -70,10 +75,11 @@ public class WebURL implements Serializable, Comparable<WebURL> {
     this.priority = rhs.priority;
     this.tag = rhs.tag;
     this.seedEnded = rhs.seedEnded;
+    this.host_previous_url = rhs.host_previous_url;
+    this.host_next_url = rhs.host_next_url;
   }
 
-  public WebURL(String url) throws URISyntaxException
-  {
+  public WebURL(String url) throws URISyntaxException {
       setURL(url);
   }
 
@@ -292,5 +298,33 @@ public class WebURL implements Serializable, Comparable<WebURL> {
     if (priority == rhs.priority)
       return Long.compare(docid, rhs.docid);
     return Integer.compare(priority, rhs.priority);
+  }
+  
+  public void setPrevious(WebURL previous_url) {
+    setPrevious(previous_url != null ? previous_url.getKey() : null);
+  }
+    
+  public void setPrevious(byte [] previous_key) {
+    this.host_previous_url = previous_key;
+  }
+  
+  public byte [] getPrevious() {
+    return this.host_previous_url;
+  }
+  
+  public void setNext(byte [] next_key) {
+    this.host_next_url = next_key;
+  }
+  
+  public void setNext(WebURL previous_url) {
+    setNext(previous_url != null ? previous_url.getKey() : null);
+  }
+  
+  public byte [] getNext() {
+    return this.host_next_url;
+  }
+  
+  public byte [] getKey() {
+    return URLQueue.getDatabaseEntryKey(this).getData();
   }
 }

@@ -47,6 +47,15 @@ public class WebURLTupleBinding extends TupleBinding<WebURL> {
     webURL.setDepth(input.readShort());
     webURL.setPriority(input.readByte());
     webURL.setAnchor(input.readString());
+    
+    byte [] prev = new byte[URLQueue.KEY_SIZE];
+    input.read(prev, 0, URLQueue.KEY_SIZE);
+    webURL.setPrevious(prev);
+    
+    byte [] next = new byte[URLQueue.KEY_SIZE];
+    input.read(next, 0, URLQueue.KEY_SIZE);
+    webURL.setNext(next);
+    
     return webURL;
   }
 
@@ -60,5 +69,7 @@ public class WebURLTupleBinding extends TupleBinding<WebURL> {
     output.writeShort(url.getDepth());
     output.writeByte(url.getPriority());
     output.writeString(url.getAnchor());
+    output.write(url.getPrevious(), 0, URLQueue.KEY_SIZE);
+    output.write(url.getNext(), 0, URLQueue.KEY_SIZE);
   }
 }

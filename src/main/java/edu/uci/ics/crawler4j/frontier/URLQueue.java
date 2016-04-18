@@ -40,6 +40,8 @@ import edu.uci.ics.crawler4j.util.Util;
  * @author Yasser Ganjisaffar
  */
 public class URLQueue {
+  public static final int KEY_SIZE = 10;
+  
   /** The BerkeleyDB database storing the URL queue*/
   private final Database urlsDB;
   
@@ -60,6 +62,9 @@ public class URLQueue {
 
   /** The mutex used for synchronization */
   protected final Object mutex = new Object();
+  
+  /** The current transaction */
+  private Transaction txn = null;
 
   /**
    * Create the URLQueue, backed by a Berkeley database
@@ -84,7 +89,7 @@ public class URLQueue {
       seedCountDB = env.openDatabase(null, dbName + "_seedcount", dbConfig);
       DatabaseEntry key = new DatabaseEntry();
       DatabaseEntry value = new DatabaseEntry();
-      Transaction txn = beginTransaction();
+      boolean shouldCommit = beginTransaction();
       try (Cursor cursor = seedCountDB.openCursor(txn, null)) {
         OperationStatus result = cursor.getFirst(key, value, null);
 
@@ -97,7 +102,8 @@ public class URLQueue {
           result = cursor.getNext(key, value, null);
         }
       } finally {
-        commit(txn);
+        if (shouldCommit)
+          commit();
       }
     }
   }
@@ -105,19 +111,23 @@ public class URLQueue {
   /**
    * Create a new transaction when the mode is set to resumable.
    * 
-   * @return The started transaction, or null of resumable crawling is disabled.
+   * @return True if a transaction was started (and should be commited, false otherwise)
    */
-  protected Transaction beginTransaction() {
-    return resumable ? env.beginTransaction(null, null) : null;
+  protected boolean beginTransaction() {
+    if (txn != null || !resumable)
+      return false;
+    
+    txn = env.beginTransaction(null, null);
+    
+    return true;
   }
 
   /**
    * Commit the specified transaction. If it is null,
    * nothing happens.
    * 
-   * @param txn The transaction to close.
    */
-  protected static void commit(Transaction txn) {
+  protected void commit() {
     if (txn != null) {
       txn.commit();
     }
@@ -127,9 +137,8 @@ public class URLQueue {
    * Abort the specified transaction. If it is null,
    * nothing happens.
    * 
-   * @param txn The transaction to close. May be null.
    */
-  protected static void abort(Transaction txn) {
+  protected void abort() {
     if (txn != null) {
       txn.abort();
     }
@@ -157,7 +166,7 @@ public class URLQueue {
       List<WebURL> results = new ArrayList<>(max);
       DatabaseEntry key = new DatabaseEntry();
       DatabaseEntry value = new DatabaseEntry();
-      Transaction txn = beginTransaction();
+      boolean shouldCommit = beginTransaction();
       try (Cursor cursor = openCursor(txn)) {
         OperationStatus result = cursor.getFirst(key, value, null);
         int matches = 0;
@@ -173,11 +182,12 @@ public class URLQueue {
           result = cursor.getNext(key, value, null);
         }
       } catch (DatabaseException e) {
-        abort(txn);
+        abort();
         txn = null;
         throw e;
       } finally {
-        commit(txn);
+        if (shouldCommit)
+          commit();
       }
         
       return results;
@@ -281,8 +291,8 @@ public class URLQueue {
    * @param url The WebURL to convert to a Database key
    * @return The 10-byte database key
    */
-  protected static DatabaseEntry getDatabaseEntryKey(WebURL url) {
-    byte[] keyData = new byte[10];
+  public static DatabaseEntry getDatabaseEntryKey(WebURL url) {
+    byte[] keyData = new byte[KEY_SIZE];
     
     // Because the ordering is done strictly binary, negative values will come last, because
     // their binary representation starts with the MSB at 1. In order to fix this, we'll have
@@ -307,7 +317,7 @@ public class URLQueue {
       boolean added = false;
       DatabaseEntry value = new DatabaseEntry();
       webURLBinding.objectToEntry(url, value);
-      Transaction txn = beginTransaction();
+      boolean shouldCommit = beginTransaction();
       // Check if the key already exists
       DatabaseEntry key = getDatabaseEntryKey(url);
       DatabaseEntry retrieve_value = new DatabaseEntry();
@@ -316,7 +326,9 @@ public class URLQueue {
         seedIncrease(url.getSeedDocid());
         added = true;
       }
-      commit(txn);
+      if (shouldCommit)
+        commit();
+      
       return added;
     }
   }
@@ -330,7 +342,7 @@ public class URLQueue {
   public List<WebURL> put(List<WebURL> urls) {
     synchronized (mutex) {
       List<WebURL> rejects = new ArrayList<WebURL>();
-      Transaction txn = beginTransaction();
+      boolean shouldCommit = beginTransaction();
       for (WebURL url : urls) {
         DatabaseEntry value = new DatabaseEntry();
         webURLBinding.objectToEntry(url, value);
@@ -346,7 +358,8 @@ public class URLQueue {
         }
           
       }
-      commit(txn);
+      if (shouldCommit)
+        commit();
       
       return rejects;
     }
@@ -379,7 +392,7 @@ public class URLQueue {
     synchronized (mutex) {
       DatabaseEntry key = new DatabaseEntry();
       DatabaseEntry value = new DatabaseEntry();
-      Transaction txn = beginTransaction();
+      boolean shouldCommit = beginTransaction();
       WebURL url;
       try (Cursor cursor = openCursor(txn)) {
         OperationStatus result = cursor.getFirst(key, value,  null);
@@ -402,9 +415,10 @@ public class URLQueue {
           result = cursor.getNext(key, value, null);
         }
       } catch (DatabaseException e) {
-        abort(txn);
+        abort();
       } finally {
-        commit(txn);
+        if (shouldCommit)
+          commit();
       }
     }
     
@@ -426,6 +440,54 @@ public class URLQueue {
     });
     
     return list;
+  }
+  
+  public boolean update(WebURL url) throws DatabaseException {
+    boolean shouldCommit = beginTransaction();
+    DatabaseEntry key = getDatabaseEntryKey(url);
+    DatabaseEntry value = new DatabaseEntry();
+    DatabaseEntry new_value = new DatabaseEntry();
+    webURLBinding.objectToEntry(url, new_value);
+    
+    try (Cursor cursor = openCursor(txn)) {
+      OperationStatus result = cursor.getSearchKey(key, value, null);
+      if (result == OperationStatus.SUCCESS) {
+        cursor.putCurrent(new_value);
+        return true;
+      }
+    } finally {
+      if (shouldCommit)
+        commit();
+    }
+    
+    // Not found
+    return false;
+  }
+  
+  public WebURL get(byte [] key) throws DatabaseException {
+    if (key == null)
+      return null;
+    
+    DatabaseEntry dbkey = new DatabaseEntry();
+    dbkey.setData(key);
+    DatabaseEntry value = new DatabaseEntry();
+    WebURL url;
+    
+    boolean shouldCommit = beginTransaction();
+    try (Cursor cursor = openCursor(txn)) {
+      OperationStatus result = cursor.getSearchKey(dbkey, value, null);
+      
+      if (result == OperationStatus.SUCCESS) {
+        url = webURLBinding.entryToObject(value);
+        return url;
+      }
+      
+      // Not found
+      return null;
+    } finally {
+      if (shouldCommit)
+        commit();
+    }
   }
 
   /**
@@ -461,7 +523,7 @@ public class URLQueue {
       boolean removed = false;
       DatabaseEntry key = getDatabaseEntryKey(webUrl);
       DatabaseEntry value = new DatabaseEntry();
-      Transaction txn = beginTransaction();
+      boolean shouldCommit = beginTransaction();
       try (Cursor cursor = openCursor(txn)) {
         OperationStatus result = cursor.getSearchKey(key, value, null);
 
@@ -473,14 +535,10 @@ public class URLQueue {
           }
         }
       } catch (DatabaseException e) {
-        if (txn != null) {
-          txn.abort();
-          txn = null;
-        }
+        abort();
       } finally {
-        if (txn != null) {
-          txn.commit();
-        }
+        if (shouldCommit)
+          commit();
 
         if (removed && webUrl.getSeedDocid() >= 0)
           seedDecrease(webUrl.getSeedDocid());
