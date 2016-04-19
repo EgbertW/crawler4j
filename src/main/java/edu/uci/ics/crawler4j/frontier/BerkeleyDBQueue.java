@@ -243,6 +243,9 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     result &= crawl_queue_db.update(cur);
     result &= crawl_queue_db.put(url);
     
+    if (!result)
+      logger.error("FAILED TO INSERT URL INTO QUEUE! ALERT ALERT ALERT");
+    
     return result;
   }
   
