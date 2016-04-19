@@ -45,31 +45,33 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
    */
   private URLQueue in_progress_db;
   
+  private PageFetcher fetcher;
+  
   private static class HostQueue {
     String host;
     short priority;
-    long delay;
+    long nextFetchTime;
     
     WebURL head;
     WebURL tail;
+    
+    HostQueue(String host) {
+      this.host = host;
+    }
   }
   
-  private static class HostComparator implements Comparator<HostQueue> {
-    Map<String, Long> delays;
-    
-    HostComparator(Map<String, Long> delays) {
-      this.delays = delays;
+  private class HostComparator implements Comparator<HostQueue> {
+    HostComparator(Map<String, Long> nextFetchTimes) {
+      for (Map.Entry<String, HostQueue> e : host_queue.entrySet()) {
+        Long nft = nextFetchTimes.get(e.getKey());
+        e.getValue().nextFetchTime = nft == null ? 0 : nft;
+      }
     }
     
     @Override
     public int compare(HostQueue lhs, HostQueue rhs) {
-      Long ld = delays.get(lhs.host);
-      lhs.delay = ld == null ? 0 : ld;
-      Long rd = delays.get(rhs.host);
-      rhs.delay = rd == null ? 0 : rd;
-      
-      if (lhs.delay != rhs.delay)
-        return Long.compare(lhs.delay,  rhs.delay);
+      if (lhs.nextFetchTime != rhs.nextFetchTime)
+        return Long.compare(lhs.nextFetchTime,  rhs.nextFetchTime);
       
       if (lhs.priority != rhs.priority)
         return lhs.priority - rhs.priority;
@@ -103,7 +105,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
           HostQueue hq = host_queue.get(host);
           
           if (hq == null) {
-            hq = new HostQueue();
+            hq = new HostQueue(host);
             hq.head = hq.tail = url;
             host_queue.put(host, hq);
           } else {
@@ -139,7 +141,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     if (hq == null) {
       url.setPrevious((byte []) null);
       url.setNext((byte []) null);
-      hq = new HostQueue();
+      hq = new HostQueue(host);
       hq.head = url;
       hq.tail = url;
       hq.priority = url.getPriority();
@@ -182,14 +184,50 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       prev = cur;
       cur = crawl_queue_db.get(cur.getNext());
     }
+    
+    if (prev == null) {
+      logger.error("THIS IS WRONG -> prev == null, which implies a head insert - walking the queue ");
+      logger.error("URL to insert: {} Docid: {}, priority: {}", url.getURL(), url.getDocid(), url.getPriority());
+      cur = hq.head;
+      int i = 0;
+      while (cur != null) {
+        String special = "";
+        if (cur.getDocid() == hq.head.getDocid())
+          special += "[HEAD]";
+        if (cur.getDocid() == hq.tail.getDocid())
+          special += "[TAIL]";
+        logger.error("Pos: {} {} Host: {} URL: {} - Docid: {} Prio: {}", i++, special, host, cur.getURL(), cur.getDocid(), cur.getPriority());
+        cur = crawl_queue_db.get(cur.getNext());
+      }
+      logger.error("---- END OF QUEUE FOR HOST: {}", host);
+    }
+    
+    if (cur == null) {
+      logger.error("THIS IS WRONG -> cur == null, which implies a tail insert - walking the queue ");
+      logger.error("URL to insert: {} Docid: {}, priority: {}", url.getURL(), url.getDocid(), url.getPriority());
+      cur = hq.head;
+      int i = 0;
+      while (cur != null) {
+        String special = "";
+        if (cur.getDocid() == hq.head.getDocid())
+          special += "[HEAD]";
+        if (cur.getDocid() == hq.tail.getDocid())
+          special += "[TAIL]";
+        logger.error("Pos: {} {} Host: {} URL: {} - Docid: {} Prio: {}", i++, special, host, cur.getURL(), cur.getDocid(), cur.getPriority());
+        cur = crawl_queue_db.get(cur.getNext());
+      }
+      logger.error("---- END OF QUEUE FOR HOST: {}", host);
+    }
    
     // The previous position needs to be non-null now, because otherwise it should've
     // been handled by the head-insert above
-    assert(prev != null);
+    if (prev == null)
+      throw new RuntimeException("Prev is null, but no head-insert has been performed");
     
     // The current position needs to be non-null now, because otherwise it should've
     // been handled by the tail-insert above
-    assert(cur != null);
+    if (cur == null)
+      throw new RuntimeException("Cur is null, but no tail-insert has been performed");
     
     // Need to insert between prev and cur
     url.setPrevious(prev);
@@ -223,6 +261,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
 
   @Override
   public WebURL getNextURL(WebCrawler crawler, PageFetcher fetcher) {
+    this.fetcher = fetcher;
     WebURL oldURL = getAssignedURL(crawler);
     if (oldURL != null)
       throw new RuntimeException("Crawler " + crawler.getMyId() + " has not finished its previous URL: " + oldURL.getURL() + " (" + oldURL.getDocid() + ")");
@@ -230,17 +269,24 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     if (host_queue.isEmpty())
       return null;
       
+    long start = System.nanoTime();
     // Sort the available hosts based on priority and delay
     TreeSet<HostQueue> sorted = new TreeSet<HostQueue>(new HostComparator(fetcher.getHostMap()));
     sorted.addAll(host_queue.values());
     
     // The head of the list is the best candidate
     HostQueue best = sorted.first();
-    if (best.delay > config.getPolitenessDelay())
+    long threshold = System.currentTimeMillis() + config.getPolitenessDelay();
+    long dur = System.nanoTime() - start;
+    
+    double durr = Math.round(dur / 1000.0);
+    logger.info("Sorting and selecting best URL out of {} hosts took {} microseconds", sorted.size(), durr);
+    if (best.nextFetchTime > threshold)
       return null;
     
     WebURL best_url = best.head;
-    assert(best_url != null);
+    if (best_url == null)
+      throw new RuntimeException("best.head is null. This should not happen -> check enqueue / disqueue administration");
     
     // We already know most relevant facts, so lets do the update directly
     byte[] next_key = best_url.getNext();
@@ -261,9 +307,10 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
 
   @Override
   public void abandon(WebCrawler crawler, WebURL url) {
-    logger.info("Crawler {} abanons URL {}", crawler.getMyId(), url.getURL());
+    logger.info("Crawler {} abandons URL {}", crawler.getMyId(), url.getURL());
     unassign(url, crawler);
     in_progress_db.removeURL(url);
+    fetcher.unselect(url);
     enqueue(url);
   }
 

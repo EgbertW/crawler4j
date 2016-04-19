@@ -29,7 +29,6 @@ import edu.uci.ics.crawler4j.url.WebURL;
  * @author Yasser Ganjisaffar
  */
 public class WebURLTupleBinding extends TupleBinding<WebURL> {
-
   @Override
   public WebURL entryToObject(TupleInput input) {
     WebURL webURL;
@@ -47,14 +46,26 @@ public class WebURLTupleBinding extends TupleBinding<WebURL> {
     webURL.setDepth(input.readShort());
     webURL.setPriority(input.readByte());
     webURL.setAnchor(input.readString());
+
+    // Read previous key if it's stored, otherwise it's null
+    boolean has_prev = input.readBoolean();
+    if (has_prev) {
+      byte [] prev = new byte[URLQueue.KEY_SIZE];
+      input.read(prev, 0, URLQueue.KEY_SIZE);
+      webURL.setPrevious(prev);
+    } else {
+      webURL.setPrevious((byte [])null);
+    }
     
-    byte [] prev = new byte[URLQueue.KEY_SIZE];
-    input.read(prev, 0, URLQueue.KEY_SIZE);
-    webURL.setPrevious(prev);
-    
-    byte [] next = new byte[URLQueue.KEY_SIZE];
-    input.read(next, 0, URLQueue.KEY_SIZE);
-    webURL.setNext(next);
+    // Read next key if it's stored, otherwise it's null
+    boolean has_next = input.readBoolean();
+    if (has_next) {
+      byte [] next = new byte[URLQueue.KEY_SIZE];
+      input.read(next, 0, URLQueue.KEY_SIZE);
+      webURL.setNext(next);
+    } else {
+      webURL.setNext((byte []) null);
+    }
     
     return webURL;
   }
@@ -69,7 +80,17 @@ public class WebURLTupleBinding extends TupleBinding<WebURL> {
     output.writeShort(url.getDepth());
     output.writeByte(url.getPriority());
     output.writeString(url.getAnchor());
-    output.write(url.getPrevious(), 0, URLQueue.KEY_SIZE);
-    output.write(url.getNext(), 0, URLQueue.KEY_SIZE);
+    
+    // Write if there is a prev-key, and the key itself
+    byte [] prev_key = url.getPrevious();
+    output.writeBoolean(prev_key != null);
+    if (prev_key != null)
+      output.write(prev_key, 0, URLQueue.KEY_SIZE);
+    
+    // Write if there is a next-key, and the key itself
+    byte [] next_key = url.getNext();
+    output.writeBoolean(next_key != null);
+    if (next_key != null)
+      output.write(next_key, 0, URLQueue.KEY_SIZE);
   }
 }

@@ -258,7 +258,7 @@ public class CrawlController extends Configurable {
                       crawler.init(i + 1, controller);
                       frontier.reassign(thread, newthread);
                       crawler.resume(oldCrawler.extractAssignedURL());
-                      thread.start();
+                      newthread.start();
                       crawlers.remove(i);
                       crawlers.add(i, crawler);
                     }

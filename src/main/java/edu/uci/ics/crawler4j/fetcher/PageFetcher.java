@@ -83,13 +83,13 @@ import edu.uci.ics.crawler4j.url.WebURL;
 public class PageFetcher extends Configurable {
   protected static final Logger logger = LoggerFactory.getLogger(PageFetcher.class);
 
-  private static class HostRequests {
+  private class HostRequests {
     /** The number of outstanding requests */
     int outstanding = 0;
     /** The next time a request to this host may be made */
     long nextFetchTime = System.currentTimeMillis();
     /** The politeness delay used for this host */
-    long delay = 200;
+    long delay = config.getPolitenessDelay();
     /** 
      * The penalty to take into account while selecting the best URL to fetch.
      * This value is excluded from the actual waiting time and is increased
@@ -165,7 +165,7 @@ public class PageFetcher extends Configurable {
     
     httpClient = clientBuilder.build();
     if ((config.getAuthInfos() != null) && !config.getAuthInfos().isEmpty()) {
-      doAuthetication(config.getAuthInfos());
+      doAuthentication(config.getAuthInfos());
     }
 
     if (connectionMonitorThread == null) {
@@ -223,7 +223,7 @@ public class PageFetcher extends Configurable {
       HostRequests host = nextFetchTimes.get(hostname);
       if (host == null) {
         host = new HostRequests();
-        host.delay = config.getPolitenessDelay();
+        nextFetchTimes.put(hostname, host);
       }
       
       ++host.outstanding;
@@ -238,7 +238,6 @@ public class PageFetcher extends Configurable {
       
       // Remove penalty from the host once it is serving its politeness delay
       host.penalty = Math.max(0, host.penalty - host.delay);
-      nextFetchTimes.put(hostname, host);
     }
      
     long delay;
@@ -298,7 +297,7 @@ public class PageFetcher extends Configurable {
     }
   }
   
-  private void doAuthetication(List<AuthInfo> authInfos) {
+  private void doAuthentication(List<AuthInfo> authInfos) {
     for (AuthInfo authInfo : authInfos) {
       if (authInfo.getAuthenticationType() == AuthInfo.AuthenticationType.BASIC_AUTHENTICATION) {
         doBasicLogin((BasicAuthInfo) authInfo);
@@ -482,18 +481,33 @@ public class PageFetcher extends Configurable {
   }
   
   public void select(WebURL webURL) {
-    URI url = webURL.getURI();
-    String host = url.getHost();
-    
-    HostRequests target_time = nextFetchTimes.get(host);
-    
-    if (target_time == null) {
-      target_time = new HostRequests();
-      target_time.nextFetchTime = System.currentTimeMillis();
-      target_time.penalty = target_time.delay;
-      nextFetchTimes.put(host, new HostRequests());
-    } else {
-      target_time.penalty += target_time.delay;
+    synchronized (nextFetchTimes) {
+      URI url = webURL.getURI();
+      String host = url.getHost();
+
+      HostRequests target_time = nextFetchTimes.get(host);
+
+      if (target_time == null) {
+        target_time = new HostRequests();
+        target_time.nextFetchTime = System.currentTimeMillis();
+        target_time.penalty = target_time.delay;
+        nextFetchTimes.put(host, new HostRequests());
+      } else {
+        target_time.penalty += target_time.delay;
+      }
+    }
+  }
+  
+  public void unselect(WebURL webURL) {
+    synchronized (nextFetchTimes) {
+      URI url = webURL.getURI();
+      String host = url.getHost();
+
+      HostRequests target_time = nextFetchTimes.get(host);
+      if (target_time == null)
+        return;
+
+      target_time.penalty = Math.max(0,  target_time.penalty - target_time.delay);
     }
   }
 }
