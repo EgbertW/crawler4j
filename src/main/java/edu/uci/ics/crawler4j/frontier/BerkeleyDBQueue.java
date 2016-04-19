@@ -49,7 +49,6 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
   
   private static class HostQueue {
     String host;
-    short priority;
     long nextFetchTime;
     
     WebURL head;
@@ -73,8 +72,8 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       if (lhs.nextFetchTime != rhs.nextFetchTime)
         return Long.compare(lhs.nextFetchTime,  rhs.nextFetchTime);
       
-      if (lhs.priority != rhs.priority)
-        return lhs.priority - rhs.priority;
+      if (lhs.head.getPriority() != rhs.head.getPriority())
+        return lhs.head.getPriority() - rhs.head.getPriority();
       
       return lhs.host.compareTo(rhs.host);
     }
@@ -144,9 +143,8 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       hq = new HostQueue(host);
       hq.head = url;
       hq.tail = url;
-      hq.priority = url.getPriority();
       
-      host_queue.put(host, hq);
+      result &= host_queue.put(host, hq) == null;
       result &= crawl_queue_db.put(url);
       return result;
     }
@@ -169,7 +167,6 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       WebURL head = hq.head;
       url.setNext(head);
       head.setPrevious(url);
-      hq.priority = hq.head.getPriority();
       
       hq.head = url;
       result &= crawl_queue_db.update(head);
@@ -182,9 +179,16 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     WebURL prev = null;
     while (cur != null && url.compareTo(cur) >= 0) {
       prev = cur;
-      cur = crawl_queue_db.get(cur.getNext());
+      byte [] next_key = cur.getNext();
+      cur = crawl_queue_db.get(next_key);
+      if (next_key != null && cur == null) {
+        logger.error("--- ERRROR!!!! FOR HOST {}, URL {} IS SUPPOSED TO HAVE NEXT BUT NEXT DOESNT EXIST", host, prev.getURL());
+        throw new RuntimeException("Next_key does not exist in crawl db");
+      }
     }
     
+    // The previous position needs to be non-null now, because otherwise it should've
+    // been handled by the head-insert above
     if (prev == null) {
       logger.error("THIS IS WRONG -> prev == null, which implies a head insert - walking the queue ");
       logger.error("URL to insert: {} Docid: {}, priority: {}", url.getURL(), url.getDocid(), url.getPriority());
@@ -197,11 +201,17 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
         if (cur.getDocid() == hq.tail.getDocid())
           special += "[TAIL]";
         logger.error("Pos: {} {} Host: {} URL: {} - Docid: {} Prio: {}", i++, special, host, cur.getURL(), cur.getDocid(), cur.getPriority());
-        cur = crawl_queue_db.get(cur.getNext());
+        byte [] next_key = cur.getNext();
+        cur = crawl_queue_db.get(next_key);
+        if (cur == null && next_key != null)
+          logger.error("------------- URL COULD NOT BE FOUND OF getNext(); WHIILE IT IS NOT NULL!");
       }
       logger.error("---- END OF QUEUE FOR HOST: {}", host);
+      throw new RuntimeException("Prev is null, but no head-insert has been performed");
     }
     
+    // The current position needs to be non-null now, because otherwise it should've
+    // been handled by the tail-insert above
     if (cur == null) {
       logger.error("THIS IS WRONG -> cur == null, which implies a tail insert - walking the queue ");
       logger.error("URL to insert: {} Docid: {}, priority: {}", url.getURL(), url.getDocid(), url.getPriority());
@@ -214,26 +224,20 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
         if (cur.getDocid() == hq.tail.getDocid())
           special += "[TAIL]";
         logger.error("Pos: {} {} Host: {} URL: {} - Docid: {} Prio: {}", i++, special, host, cur.getURL(), cur.getDocid(), cur.getPriority());
-        cur = crawl_queue_db.get(cur.getNext());
+        byte [] next_key = cur.getNext();
+        cur = crawl_queue_db.get(next_key);
+        if (cur == null && next_key != null)
+          logger.error("------------- URL COULD NOT BE FOUND OF getNext(); WHIILE IT IS NOT NULL!");
       }
       logger.error("---- END OF QUEUE FOR HOST: {}", host);
-    }
-   
-    // The previous position needs to be non-null now, because otherwise it should've
-    // been handled by the head-insert above
-    if (prev == null)
-      throw new RuntimeException("Prev is null, but no head-insert has been performed");
-    
-    // The current position needs to be non-null now, because otherwise it should've
-    // been handled by the tail-insert above
-    if (cur == null)
       throw new RuntimeException("Cur is null, but no tail-insert has been performed");
+    }
     
     // Need to insert between prev and cur
+    prev.setNext(url);
     url.setPrevious(prev);
     url.setNext(cur);
-    prev.setNext(url);
-    cur.setPrevious(cur);
+    cur.setPrevious(url);
     
     result &= crawl_queue_db.update(prev);
     result &= crawl_queue_db.update(cur);
