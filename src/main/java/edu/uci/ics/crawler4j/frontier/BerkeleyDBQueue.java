@@ -206,6 +206,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
         if (cur == null && next_key != null)
           logger.error("------------- URL COULD NOT BE FOUND OF getNext(); WHIILE IT IS NOT NULL!");
       }
+      logger.error("Pos: TAIL Host: {} URL: {} - Docid: {} Prio: {}", i++, host, hq.tail.getURL(), hq.tail.getDocid(), hq.tail.getPriority());
       logger.error("---- END OF QUEUE FOR HOST: {}", host);
       throw new RuntimeException("Prev is null, but no head-insert has been performed");
     }
@@ -229,6 +230,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
         if (cur == null && next_key != null)
           logger.error("------------- URL COULD NOT BE FOUND OF getNext(); WHIILE IT IS NOT NULL!");
       }
+      logger.error("Pos: TAIL Host: {} URL: {} - Docid: {} Prio: {}", i++, host, hq.tail.getURL(), hq.tail.getDocid(), hq.tail.getPriority());
       logger.error("---- END OF QUEUE FOR HOST: {}", host);
       throw new RuntimeException("Cur is null, but no tail-insert has been performed");
     }
@@ -295,7 +297,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     if (best_url == null)
       throw new RuntimeException("best.head is null. This should not happen -> check enqueue / disqueue administration");
     
-    // We already know most relevant facts, so lets do the update directly
+    // Update the linkedlist in the crawl queue
     byte[] next_key = best_url.getNext();
     if (next_key == null) {
       // The queue is empty
@@ -303,6 +305,8 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     } else {
       // Move the head to the next element
       best.head = crawl_queue_db.get(next_key);
+      best.head.setPrevious((byte []) null);
+      crawl_queue_db.update(best.head);
     }
     
     crawl_queue_db.removeURL(best_url);
@@ -360,7 +364,10 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
           
           String host = url.getURI().getHost();
           HostQueue hq = host_queue.get(host);
-          assert(hq != null);
+          
+          if (hq == null)
+            throw new RuntimeException("Element in URL queue is not in host_queue");
+          
           if (hq.head.getDocid() == url.getDocid()) {
             if (next == null)
               host_queue.remove(host);
