@@ -237,11 +237,16 @@ public class PageFetcher extends Configurable {
         HostDirectives hd = robotstxt_server.getDirectives(url);
         if (hd != null) {
           if (hd.getCrawlDelay() != null) {
-            host.delay = Math.max(60000, Math.round(hd.getCrawlDelay() * 1000));
-            if (host.delay < 60000)
-              logger.info("Modified crawl-delay for host {} to {}ms as requested in robots.txt", hostname, host.delay);
-            else
-              logger.info("Modified crawl-delay for host {} to 60s - robots.txt requested {}s", hostname, hd.getCrawlDelay());
+            long requested = Math.round(hd.getCrawlDelay() * 1000);
+            if (requested > getDefaultPolitenessDelay()) {
+              if (requested < 60000) {
+                host.delay = requested;
+                logger.info("Modified crawl-delay for host {} to {}ms as requested in robots.txt", hostname, host.delay);
+              } else {
+                host.delay = 60000;
+                logger.info("Modified crawl-delay for host {} to 60s - robots.txt requested {}s", hostname, requested / 1000.0);
+              }
+            }
           }
         }
           
