@@ -57,6 +57,7 @@ public class RobotstxtServer {
   public RobotstxtServer(RobotstxtConfig config, PageFetcher pageFetcher) {
     this.config = config;
     this.pageFetcher = pageFetcher;
+    this.pageFetcher.setRobotstxtServer(this);
   }
 
   private static String getHost(URL url) {
@@ -121,6 +122,22 @@ public class RobotstxtServer {
     }
   }
 
+  /**
+   * Get the cached robots.txt directives for a URL. This will never
+   * fetch the robots.txt file, but only return the cached directives
+   * if they are available.
+   * 
+   * @param url The URL for which to get the directives
+   * @return HostDirectives object for the host, or null if no directives are available
+   */
+  public HostDirectives getDirectives(URL url) {
+    String host = getHost(url);
+    
+    synchronized (host2directivesCache) {
+      return host2directivesCache.get(host);
+    }
+  }
+  
   private HostDirectives fetchDirectives(URL url) {
     WebURL robotsTxtUrl = null;
     String host = getHost(url);

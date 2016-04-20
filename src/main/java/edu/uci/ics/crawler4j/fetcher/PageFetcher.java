@@ -74,6 +74,8 @@ import edu.uci.ics.crawler4j.crawler.authentication.AuthInfo;
 import edu.uci.ics.crawler4j.crawler.authentication.BasicAuthInfo;
 import edu.uci.ics.crawler4j.crawler.authentication.FormAuthInfo;
 import edu.uci.ics.crawler4j.crawler.exceptions.PageBiggerThanMaxSizeException;
+import edu.uci.ics.crawler4j.robotstxt.HostDirectives;
+import edu.uci.ics.crawler4j.robotstxt.RobotstxtServer;
 import edu.uci.ics.crawler4j.url.URLCanonicalizer;
 import edu.uci.ics.crawler4j.url.WebURL;
 
@@ -108,6 +110,8 @@ public class PageFetcher extends Configurable {
   protected int delay_counter = 0;
   protected long delay_last_time = 0;
   protected long delay_exceeded_last_time = 0;
+  
+  protected RobotstxtServer robotstxt_server = null;
   
   public PageFetcher(CrawlConfig config) {
     super(config);
@@ -174,6 +178,10 @@ public class PageFetcher extends Configurable {
     connectionMonitorThread.start();
   }
   
+  public void setRobotstxtServer(RobotstxtServer server) {
+    this.robotstxt_server = server;
+  }
+  
   /**
    * Set the politeness delay for a specific host.
    * 
@@ -223,6 +231,20 @@ public class PageFetcher extends Configurable {
       HostRequests host = nextFetchTimes.get(hostname);
       if (host == null) {
         host = new HostRequests();
+        
+        // Respect crawl-delay in robots.txt if specified, up to
+        // a maximum of 60 seconds
+        HostDirectives hd = robotstxt_server.getDirectives(url);
+        if (hd != null) {
+          if (hd.getCrawlDelay() != null) {
+            host.delay = Math.max(60000, Math.round(hd.getCrawlDelay() * 1000));
+            if (host.delay < 60000)
+              logger.info("Modified crawl-delay for host {} to {}ms as requested in robots.txt", hostname, host.delay);
+            else
+              logger.info("Modified crawl-delay for host {} to 60s - robots.txt requested {}s", hostname, hd.getCrawlDelay());
+          }
+        }
+          
         nextFetchTimes.put(hostname, host);
       }
       
