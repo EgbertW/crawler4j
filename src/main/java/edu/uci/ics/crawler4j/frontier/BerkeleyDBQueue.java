@@ -522,10 +522,23 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       @Override
       public IterateAction apply(WebURL url) {
         if (url.getSeedDocid() == seed_doc_id) {
-          num_removed.assign(num_removed.get() + 1);
+          ++num_removed.val;
+          
+          String host = url.getURI().getHost();
+          HostQueue hq = host_queue.get(host);
+          
+          if (hq == null)
+            throw new RuntimeException("Element in URL queue is not in host_queue - docid: " + url.getDocid() + " host: " + host);
+          
           WebURL prev = crawl_queue_db.get(url.getPrevious());
           WebURL next = crawl_queue_db.get(url.getNext());
     
+          if (prev != null && prev.getDocid() == hq.head.getDocid())
+            prev = hq.head;
+          
+          if (next != null && next.getDocid() == hq.tail.getDocid())
+            next = hq.tail;
+          
           if (prev != null) {
             prev.setNext(next);
             crawl_queue_db.update(prev);
@@ -535,12 +548,6 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
             next.setPrevious(prev);
             crawl_queue_db.update(next);
           }
-          
-          String host = url.getURI().getHost();
-          HostQueue hq = host_queue.get(host);
-          
-          if (hq == null)
-            throw new RuntimeException("Element in URL queue is not in host_queue");
           
           if (hq.head.getDocid() == url.getDocid()) {
             if (next == null)
@@ -561,5 +568,6 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
         return IterateAction.CONTINUE;
       }
     });
+    logger.info("Removed {} offspring of seed [[{}]]", num_removed.val, seed_doc_id);
   }
 }
