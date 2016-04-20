@@ -20,6 +20,7 @@ package edu.uci.ics.crawler4j.frontier;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -87,14 +88,30 @@ public class Frontier extends Configurable {
    * 
    * @param urls The list of URLs to schedule
    */
-  public void scheduleAll(List<WebURL> urls) {
+  public void scheduleAll(Collection<WebURL> urls) {
     synchronized (mutex) {
-      List<WebURL> rejects = new ArrayList<WebURL>();
-      for (WebURL url : urls)
-        if (!doSchedule(url))
-          rejects.add(url);
+      List<WebURL> accepted = new ArrayList<WebURL>();
+      for (WebURL url : urls) {
+        if (!url.isHttp()) {
+          logger.warn("Not scheduling URL {} - Protocol {} not supported", url.getURL(), url.getProtocol());
+          continue;
+        }
+        
+        if (url.getDocid() < 0) {
+          long docid = this.docIdServer.getNewUnseenDocID(url.getURL());
+          if (docid == -1)
+            continue;
+          url.setDocid(docid);
+        }
+        
+        if (url.getSeedDocid() < 0)
+          url.setSeedDocid(url.getDocid());
+        
+        accepted.add(url);
+      }
       
-      scheduledPages += (urls.size() - rejects.size());
+      List<WebURL> queue_rejects = queue.enqueue(accepted);
+      scheduledPages += (accepted.size() - queue_rejects.size());
     }
     
     counters.setValue(Counters.ReservedCounterNames.SCHEDULED_PAGES, scheduledPages);
@@ -112,53 +129,40 @@ public class Frontier extends Configurable {
    * @param url The WebURL to schedule
    * @return True if the URL was added to the queue, false otherwise.
    */
-  private boolean doSchedule(WebURL url) {
-    if (!url.isHttp()) {
-      logger.warn("Not scheduling URL {} - Protocol {} not supported", url.getURL(), url.getProtocol());
-      return false;
-    }
-
-    if (url.getDocid() < 0) {
-      long docid = this.docIdServer.getNewUnseenDocID(url.getURL());
-      if (docid == -1)
-        return false;
-      url.setDocid(docid);
-    }
-
-    // A URL without a seed doc ID is a seed of itself.
-    if (url.getSeedDocid() < 0) {
-      url.setSeedDocid(url.getDocid());
-    }
-
-    try {
-      queue.enqueue(url);
-      ++scheduledPages;
-    } catch (RuntimeException e) {
-      logger.error("Error while putting the url in the work queue", e);
-      return false;
-    }
-    
-    return true;
-  }
-  
-  /**
-   * Schedule a WebURL. It will use doSchedule to schedule it and update the counter values.
-   * 
-   * @param url The WebURL to schedule.
-   * @return If the URL was scheduled
-   */
   public boolean schedule(WebURL url) {
-    boolean scheduled = false;
     synchronized (mutex) {
-      if (scheduled = doSchedule(url))
+      if (!url.isHttp()) {
+        logger.warn("Not scheduling URL {} - Protocol {} not supported", url.getURL(), url.getProtocol());
+        return false;
+      }
+
+      if (url.getDocid() < 0) {
+        long docid = this.docIdServer.getNewUnseenDocID(url.getURL());
+        if (docid == -1)
+          return false;
+        url.setDocid(docid);
+      }
+
+      // A URL without a seed doc ID is a seed of itself.
+      if (url.getSeedDocid() < 0)
+        url.setSeedDocid(url.getDocid());
+
+      try {
+        queue.enqueue(url);
+        ++scheduledPages;
         counters.increment(Counters.ReservedCounterNames.SCHEDULED_PAGES);
+      } catch (RuntimeException e) {
+        logger.error("Error while putting the url in the work queue", e);
+        return false;
+      }
+
+      // Wake up threads
+      synchronized (waitingList) {
+        waitingList.notifyAll();
+      }
+
+      return true;
     }
-    
-    // Wake up threads
-    synchronized (waitingList) {
-      waitingList.notifyAll();
-    }
-    return scheduled;
   }
   
   /**

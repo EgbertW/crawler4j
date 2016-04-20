@@ -24,7 +24,7 @@ import java.net.URISyntaxException;
 import com.sleepycat.persist.model.Entity;
 import com.sleepycat.persist.model.PrimaryKey;
 
-import edu.uci.ics.crawler4j.frontier.URLQueue;
+import edu.uci.ics.crawler4j.util.Util;
 
 /**
  * @author Yasser Ganjisaffar
@@ -54,6 +54,9 @@ public class WebURL implements Serializable, Comparable<WebURL> {
   
   private byte [] host_previous_url = null;
   private byte [] host_next_url = null;
+  private byte [] keyData = null;
+
+  public static final int KEY_SIZE = 10;
 
   /** Copy constructor
    * 
@@ -294,12 +297,6 @@ public class WebURL implements Serializable, Comparable<WebURL> {
     return url;
   }
   
-  public int compareTo(WebURL rhs) {
-    if (priority == rhs.priority)
-      return Long.compare(docid, rhs.docid);
-    return Integer.compare(priority, rhs.priority);
-  }
-  
   public void setPrevious(WebURL previous_url) {
     setPrevious(previous_url != null ? previous_url.getKey() : null);
   }
@@ -324,7 +321,60 @@ public class WebURL implements Serializable, Comparable<WebURL> {
     return this.host_next_url;
   }
   
-  public byte [] getKey() {
-    return URLQueue.getDatabaseEntryKey(this).getData();
+  /**
+   * The key that is used for storing URLs determines the order
+   * they are crawled. Lower key values results in earlier crawling.
+   * Here our keys are 10 bytes. The first byte comes from the URL priority.
+   * The second byte comes from depth of crawl at which this URL is first found.
+   * The remaining 8 bytes come from the docid of the URL. As a result,
+   * URLs with lower priority numbers will be crawled earlier. If priority
+   * numbers are the same, those found at lower depths will be crawled earlier.
+   * If depth is also equal, those found earlier (therefore, smaller docid) will
+   * be crawled earlier.
+   * 
+   * @return The 10-byte database key
+   */
+  public synchronized byte [] getKey() {
+    if (keyData != null)
+      return keyData;
+    
+    keyData = new byte[WebURL.KEY_SIZE];
+    
+    // Because the ordering is done strictly binary, negative values will come last, because
+    // their binary representation starts with the MSB at 1. In order to fix this, we'll have
+    // to add the minimum value to become 0. This means that the maximum number will become
+    // out of range in Byte-value, but the integer value is nicely converted down to the actual
+    // binary representation that is useful here.
+    byte binary_priority = (byte)(priority - Byte.MIN_VALUE);
+    keyData[0] = binary_priority;
+    keyData[1] = (depth > Byte.MAX_VALUE ? Byte.MAX_VALUE : (byte) depth);
+    Util.putLongInByteArray(docid, keyData, 2);
+    return keyData;
+  }
+  
+  /**
+   * Compare the WebURL with a different one, based on the key determined above
+   * 
+   * @param rhs The URL to compare with
+   * @return -1 if the current URL comes before rhs, 1 if it comes after and 0 if they are equal
+   */
+  public int compareTo(WebURL rhs) {
+    return compareKey(rhs.getKey());
+  }
+  
+  /**
+   * Compare the WebURL's key with a different key
+   *  
+   * @param okey The key to compare with
+   * @return -1 if the current URL comes before key, 1 if it comes after and 0 if they are equal
+   */
+  public int compareKey(byte [] okey) {
+    byte [] mykey = getKey();
+    
+    for (int i = 0; i < KEY_SIZE; ++i)
+      if (mykey[i] != okey[i])
+        return okey[i] - mykey[i];
+    
+    return 0;
   }
 }

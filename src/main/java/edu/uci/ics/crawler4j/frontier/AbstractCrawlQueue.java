@@ -1,6 +1,7 @@
 package edu.uci.ics.crawler4j.frontier;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 
@@ -26,7 +27,7 @@ public abstract class AbstractCrawlQueue implements CrawlQueue {
   }
 
   @Override
-  public List<WebURL> enqueue(List<WebURL> urls) {
+  public List<WebURL> enqueue(Collection<WebURL> urls) {
     ArrayList<WebURL> rejects = new ArrayList<WebURL>();
     for (WebURL url : urls) {
       try {

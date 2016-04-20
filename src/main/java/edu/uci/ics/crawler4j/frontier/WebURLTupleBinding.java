@@ -50,8 +50,8 @@ public class WebURLTupleBinding extends TupleBinding<WebURL> {
     // Read previous key if it's stored, otherwise it's null
     boolean has_prev = input.readBoolean();
     if (has_prev) {
-      byte [] prev = new byte[URLQueue.KEY_SIZE];
-      input.read(prev, 0, URLQueue.KEY_SIZE);
+      byte [] prev = new byte[WebURL.KEY_SIZE];
+      input.read(prev, 0, WebURL.KEY_SIZE);
       webURL.setPrevious(prev);
     } else {
       webURL.setPrevious((byte [])null);
@@ -60,8 +60,8 @@ public class WebURLTupleBinding extends TupleBinding<WebURL> {
     // Read next key if it's stored, otherwise it's null
     boolean has_next = input.readBoolean();
     if (has_next) {
-      byte [] next = new byte[URLQueue.KEY_SIZE];
-      input.read(next, 0, URLQueue.KEY_SIZE);
+      byte [] next = new byte[WebURL.KEY_SIZE];
+      input.read(next, 0, WebURL.KEY_SIZE);
       webURL.setNext(next);
     } else {
       webURL.setNext((byte []) null);
@@ -85,12 +85,12 @@ public class WebURLTupleBinding extends TupleBinding<WebURL> {
     byte [] prev_key = url.getPrevious();
     output.writeBoolean(prev_key != null);
     if (prev_key != null)
-      output.write(prev_key, 0, URLQueue.KEY_SIZE);
+      output.write(prev_key, 0, WebURL.KEY_SIZE);
     
     // Write if there is a next-key, and the key itself
     byte [] next_key = url.getNext();
     output.writeBoolean(next_key != null);
     if (next_key != null)
-      output.write(next_key, 0, URLQueue.KEY_SIZE);
+      output.write(next_key, 0, WebURL.KEY_SIZE);
   }
 }

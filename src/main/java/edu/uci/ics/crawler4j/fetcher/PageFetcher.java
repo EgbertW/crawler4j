@@ -203,9 +203,9 @@ public class PageFetcher extends Configurable {
   }
   
   protected void enforcePolitenessDelay(URL url) {
-    if (url == null)
+    if (url == null || (url.getFile() != null && url.getFile().endsWith("robots.txt")))
       return;
-   
+    
     String hostname = url.getHost();
     long target;
     synchronized (nextFetchTimes) {
@@ -258,11 +258,6 @@ public class PageFetcher extends Configurable {
     
     while ((delay = target - System.currentTimeMillis()) > 0)
     {
-      if (delay >= 300000)
-      {
-          logger.info("Sleeping 5 minutes for politeness delay for host {} - {} seconds remain afterwards", hostname, delay / 1000.0);
-          delay = 300000;
-      }
       try {
         Thread.sleep(delay);
       } catch (InterruptedException e)
@@ -278,7 +273,7 @@ public class PageFetcher extends Configurable {
    * @param url The parsed URL that has been requested
    */
   private void finishRequest(URL url) {
-    if (url == null)
+    if (url == null || (url.getPath() != null && url.getPath().endsWith("robots.txt")))
       return;
     
     String hostname = url.getHost();
@@ -489,7 +484,6 @@ public class PageFetcher extends Configurable {
 
       if (target_time == null) {
         target_time = new HostRequests();
-        target_time.nextFetchTime = System.currentTimeMillis();
         target_time.penalty = target_time.delay;
         nextFetchTimes.put(host, new HostRequests());
       } else {

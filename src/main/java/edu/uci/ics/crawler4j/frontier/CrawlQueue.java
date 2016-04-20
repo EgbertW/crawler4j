@@ -1,5 +1,6 @@
 package edu.uci.ics.crawler4j.frontier;
 
+import java.util.Collection;
 import java.util.List;
 
 import edu.uci.ics.crawler4j.crawler.CrawlConfig;
@@ -33,7 +34,7 @@ public interface CrawlQueue {
      * In order to get more detail, getLastError can be queried or enqueue() can
      * be called separately.
      */
-    public List<WebURL> enqueue(List<WebURL> urls);
+    public List<WebURL> enqueue(Collection<WebURL> urls);
     
     /**
      * Return the last error string while performing any action on the queue.

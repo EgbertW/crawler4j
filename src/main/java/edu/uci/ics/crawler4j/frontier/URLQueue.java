@@ -18,6 +18,7 @@
 package edu.uci.ics.crawler4j.frontier;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,8 +41,6 @@ import edu.uci.ics.crawler4j.util.Util;
  * @author Yasser Ganjisaffar
  */
 public class URLQueue {
-  public static final int KEY_SIZE = 10;
-  
   /** The BerkeleyDB database storing the URL queue*/
   private final Database urlsDB;
   
@@ -292,18 +291,7 @@ public class URLQueue {
    * @return The 10-byte database key
    */
   public static DatabaseEntry getDatabaseEntryKey(WebURL url) {
-    byte[] keyData = new byte[KEY_SIZE];
-    
-    // Because the ordering is done strictly binary, negative values will come last, because
-    // their binary representation starts with the MSB at 1. In order to fix this, we'll have
-    // to add the minimum value to become 0. This means that the maximum number will become
-    // out of range in Byte-value, but the integer value is nicely converted down to the actual
-    // binary representation that is useful here.
-    byte binary_priority = (byte)(url.getPriority() - Byte.MIN_VALUE);
-    keyData[0] = binary_priority;
-    keyData[1] = (url.getDepth() > Byte.MAX_VALUE ? Byte.MAX_VALUE : (byte) url.getDepth());
-    Util.putLongInByteArray(url.getDocid(), keyData, 2);
-    return new DatabaseEntry(keyData);
+    return new DatabaseEntry(url.getKey());
   }
 
   /**
@@ -339,7 +327,7 @@ public class URLQueue {
    * @param urls The list of URLs to add
    * @return The number of URLs added. Duplicates are not added again.
    */
-  public List<WebURL> put(List<WebURL> urls) {
+  public List<WebURL> put(Collection<WebURL> urls) {
     synchronized (mutex) {
       List<WebURL> rejects = new ArrayList<WebURL>();
       boolean shouldCommit = beginTransaction();
@@ -356,8 +344,8 @@ public class URLQueue {
         } else {
           rejects.add(url);
         }
-          
       }
+      
       if (shouldCommit)
         commit();
       
@@ -442,6 +430,44 @@ public class URLQueue {
     return list;
   }
   
+  /**
+   * Update a set of URLs in the database in one transaction.
+   * 
+   * @param urls The URLS to update
+   * @throws DatabaseException Whenever something goes wrong
+   * @see #update(WebURL)
+   */
+  public void update(Collection<WebURL> urls) throws DatabaseException {
+    boolean shouldCommit = beginTransaction();
+    
+    try (Cursor cursor = openCursor(txn)) {
+      for (WebURL url : urls) {
+        DatabaseEntry key = getDatabaseEntryKey(url);
+        DatabaseEntry value = new DatabaseEntry();
+        DatabaseEntry new_value = new DatabaseEntry();
+        webURLBinding.objectToEntry(url, new_value);
+        
+        OperationStatus result = cursor.getSearchKey(key, value, null);
+        if (result != OperationStatus.SUCCESS)
+          throw new RuntimeException("Failed to find URL to update");
+        
+        cursor.putCurrent(new_value);
+      }
+    } finally {
+      if (shouldCommit)
+        commit();
+    }
+  }
+  
+  /**
+   * Update a URL in the database. It is assumed that the key information
+   * nor the seed status changed. If it has, a remove/put combination should be 
+   * used in stead. Seed counters are therefore not updated.
+   * 
+   * @param url The URL to update
+   * @return True when the update succeeded, false otherwise
+   * @throws DatabaseException When something went wrong in the database
+   */
   public boolean update(WebURL url) throws DatabaseException {
     boolean shouldCommit = beginTransaction();
     DatabaseEntry key = getDatabaseEntryKey(url);
