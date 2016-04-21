@@ -28,42 +28,67 @@ import edu.uci.ics.crawler4j.util.Util;
 
 /**
  * This is an implementation of a URL queue using the BerkeleyDB backed
- * queue in the URLQueue class. It provides resumable crawling by
- * storing all URLs in the database on disk and good performance.
+ * queue in the URLQueue class. It maintains a crawling queue sorted on 
+ * host names on which the URLs reside. A list of hosts with queued URLs
+ * is therefore always available, making it easy to select a host that
+ * has the shortest possible crawl delay, and once a host has been selected,
+ * the best URL from that host to fetch.
  * 
- * By using is shorter queue that is stored in memory, it is possible to
- * select a better URL based on the politeness delay involved in the urls.
+ * This is achieved in combination with the PageFetcher that maintains the crawl
+ * delay data based on the politeness delay setting.
  * 
  * @author Egbert van der Wal
  */
 public class BerkeleyDBQueue extends AbstractCrawlQueue {
   public static final Logger logger = LoggerFactory.getLogger(BerkeleyDBQueue.class);
   
-  /** The long crawl queue. This is a pure BerkeleyDB backed queue, which may contain
-   * very many elements. */
-  private URLQueue crawl_queue_db;
-  
-  /** The short crawl queue. This is the BerkeleyDB backed queue to make it persistent,
-   * but most operations are executed on the urls_unassigned queue and the urls_in_progress
-   * list.
+  /** 
+   * The crawl queue. This is a pure BerkeleyDB backed queue, which contains
+   * all the URLs that need to be retrieved and have not been assigned to a
+   * crawler yet.
    */
-  private URLQueue in_progress_db;
+  protected URLQueue crawl_queue_db;
   
-  private PageFetcher fetcher;
+  /** 
+   * The list of URLs that are in progress -> have been assigned to a crawler.
+   * When a URL is assigned using getNextURL, it will be moved from the 
+   * crawl_queue_db to the in_progress_db queue from which it will be removed
+   * as soon as the page has been retrieved or cancelled using setFinished or
+   * abandon.
+   */
+  protected URLQueue in_progress_db;
   
-  private static class HostQueue {
-    String host;
-    long nextFetchTime;
+  protected PageFetcher fetcher;
+  
+  /**
+   * Maintain the list of host-specific crawl queues. Each crawl
+   * queue is a linked list where the head and the tail are stored,
+   * so that head and tail inserts can be done efficiently. This class
+   * is used to quickly determine the best host and the best URL on that
+   * host to fetch next.
+   * 
+   * @author Egbert vand er Wal
+   */
+  protected static class HostQueue {
+    protected String host;
+    protected long nextFetchTime;
     
-    WebURL head;
-    WebURL tail;
+    public WebURL head;
+    public WebURL tail;
     
-    HostQueue(String host) {
+    public HostQueue(String host) {
       this.host = host;
     }
   }
   
-  private class HostComparator implements Comparator<HostQueue> {
+  /**
+   * This class is used to compare hosts based on the next fetch time
+   * as obtained from the Page Fetcher, their priority and the crawl depth,
+   * so give the best candidate for fetching.
+   * 
+   * @author Egbert van der Wal
+   */
+  protected class HostComparator implements Comparator<HostQueue> {
     HostComparator(Map<String, Long> nextFetchTimes) {
       for (Map.Entry<String, HostQueue> e : host_queue.entrySet()) {
         Long nft = nextFetchTimes.get(e.getKey());
@@ -83,7 +108,8 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     }
   }
   
-  private HashMap<String, HostQueue> host_queue = new HashMap<String, HostQueue>();
+  /** The mapping between a hostname and its head/tail, used to determine crawl order */
+  protected HashMap<String, HostQueue> host_queue = new HashMap<String, HostQueue>();
   
   /**
    * Initialize the queue and reload stored elements from disk.
@@ -134,112 +160,9 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     }
   }
   
-  // TODO: this should be moved to tests
-  @SuppressWarnings("unused")
-  private void validateQueue() {
-    // PERFORMANCE KILLER BUT NECESSARY FOR DEBUG
-    long st = System.nanoTime();
-    for (Map.Entry<String, HostQueue> e : host_queue.entrySet()) {
-      String host = e.getKey();
-      HostQueue hq = e.getValue();
-      
-      if (hq.head == null)
-        die(hq, new Throwable("No head in host queue: " + host));
-      
-      if (hq.tail == null)
-        die(hq, new Throwable("No tail in host queue: " + host));
-      
-      WebURL cur = crawl_queue_db.get(hq.head.getKey());
-      if (cur == null)
-        die(hq, new Throwable("Head not found in database: host: " + host + " head: " + hq.head.getURL() + " docid: ##" + hq.head.getDocid() + "##"));
-      if (cur.getDocid() != hq.head.getDocid())
-        die(hq, new Throwable("Head docid does not match - db says: ##" + cur.getDocid() + "## hq says: ##" + hq.head.getDocid() + "##"));
-      
-      WebURL tail_check = crawl_queue_db.get(hq.tail.getKey());
-      if (tail_check == null)
-        die(hq, new Throwable("Tail not found in database: host: " + host + " head: " + hq.tail.getURL() + " docid: ##" + hq.tail.getDocid() + "##"));
-      
-      if (tail_check.getDocid() != hq.tail.getDocid())
-        die(hq, new Throwable("Tail docid does not match - db says: ##" + cur.getDocid() + "## hq says: ##" + hq.head.getDocid() + "##"));
-      
-      WebURL prev = null;
-      WebURL next = null;
-      int i = 0;
-      while (cur != null) {
-        byte [] next_key = cur.getNext();
-        if (next_key != null) {
-          next = crawl_queue_db.get(next_key);
-          if (next == null)
-            die(hq, new Throwable("Host: " + host + " @ pos: " + (i) + " - Next_key is not null, but URL does not exist in database"));
-          
-          if (cur.getDocid() == hq.tail.getDocid()) {
-            die(hq, new Throwable("Host: " + host + " @ pos: " + i + " - Current element is tail, but there is a next_url: " + next.getURL() + " (Docid: ##" + next.getDocid() + "##"));
-          }
-        } else {
-          next = null;
-        }
-        
-        byte [] prev_key = cur.getPrevious();
-        if (prev_key != null) {
-          WebURL tmp_prev = crawl_queue_db.get(prev_key);
-          if (tmp_prev == null)
-            die(hq, new Throwable("Host: " + host + " @ pos: " + i + " - prev_key exists but cannot be found in db"));
-            
-          if (prev == null)
-            die(hq, new Throwable("Host: " + host + " @ pos: " + (i) + " - prev_key is not null, but URL is head of the queue - URL: " + tmp_prev.getURL() + " (Docid: ##" + tmp_prev.getDocid() + "##"));
-          
-          if (tmp_prev.getDocid() != prev.getDocid())
-            die(hq, new Throwable("Host: " + host + " @ pos: " + (i) + " - prev.getDocid(##" + prev.getDocid() + "##) != tmp_prev.getDocid(##" + tmp_prev.getDocid() + "##)"));
-        } else if (prev != null) {
-          die(hq, new Throwable("Host: " + host + " @ pos: " + (i) + " - prev_key is null, but prev != null"));
-        }
-        
-        prev = cur;
-        cur = next;
-        ++i;
-      }
-      if (prev == null)
-        die(hq, new Throwable("Host: " + host + " @ pos: "+ i + " - prev is null at end of queue"));
-      
-      if (prev.getDocid() != hq.tail.getDocid())
-        die(hq, new Throwable("Prev.getDocid(##" + prev.getDocid() + "##) != hq.tail.getDocid(##" + hq.tail.getDocid() + "##)"));
-    }
-    long dur = System.nanoTime() - st;
-    logger.info("Validating host_queue took {} ms", Math.round(dur / 10000.0) / 100.0);
-  }
-  
-  private void die(HostQueue hq, Throwable e) {
-    logger.error("ERROR: {}", e.getMessage());
-    System.err.println("ERROR: " + e.getMessage());
-    if (e != null) {
-      logger.error("Stacktrace: ", e);
-      e.printStackTrace(System.err);
-    }
-    
-    logger.error("-- LISTING QUEUE");
-    WebURL cur = hq.head;
-    String host = hq.host;
-    int i = 0;
-    while (cur != null) {
-      String special = "";
-      if (cur.getDocid() == hq.head.getDocid())
-        special += "[HEAD]";
-      if (cur.getDocid() == hq.tail.getDocid())
-        special += "[TAIL]";
-      logger.error("Pos: {} {} Host: {} URL: {} - Docid: ##{}## Prio: {}", i++, special, host, cur.getURL(), cur.getDocid(), cur.getPriority());
-      byte [] next_key = cur.getNext();
-      cur = crawl_queue_db.get(next_key);
-      if (cur == null && next_key != null)
-        logger.error("------------- URL COULD NOT BE FOUND OF getNext(); WHIILE IT IS NOT NULL!");
-    }
-    logger.error("Pos: TAIL Host: {} URL: {} - Docid: ##{}## Prio: {}", host, hq.tail.getURL(), hq.tail.getDocid(), hq.tail.getPriority());
-    logger.error("---- END OF QUEUE FOR HOST: {}", host);
-    
-    System.exit(1);
-  }
-  
   @Override
   public boolean enqueue(WebURL url) {
+    boolean debug = logger.isDebugEnabled();
     URI uri = url.getURI();
     String host = uri.getHost();
     
@@ -254,6 +177,8 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       
       result &= host_queue.put(host, hq) == null;
       result &= crawl_queue_db.put(url);
+      if (debug)
+        logger.trace("Inserting new host queue for host {} starting with docid: ##{}##", host, url.getDocid());
       return result;
     }
     
@@ -262,7 +187,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     // Need to insert it in the queue at the appropriate position
     if ((comp = url.compareTo(hq.tail)) >= 0) {
       if (comp == 0)
-        throw new RuntimeException("Duplicate URL");
+        throw new RuntimeException("Duplicate URL: " + url.getDocid());
       
       // Tail-insert
       WebURL tail = hq.tail;
@@ -273,6 +198,8 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       hq.tail = url;
       result &= crawl_queue_db.update(tail);
       result &= crawl_queue_db.put(url);
+      if (debug)
+        logger.trace("Doing tail-insert for host {} for URL with docid: {}", host, url.getDocid());
       return result;
     }
     
@@ -286,6 +213,8 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       hq.head = url;
       result &= crawl_queue_db.update(head);
       result &= crawl_queue_db.put(url);
+      if (debug)
+        logger.trace("Doing head-insert for host {} for URL with docid: {}", host, url.getDocid());
       return result;
     }
     
@@ -326,6 +255,8 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     url.setPrevious(prev);
     url.setNext(cur);
     cur.setPrevious(url);
+    if (debug)
+      logger.trace("Host {} - inserting new docid {} between {} and {}", host, url.getDocid(), prev.getDocid(), cur.getDocid());
     
     result &= crawl_queue_db.update(prev);
     result &= crawl_queue_db.update(cur);
@@ -435,9 +366,6 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       crawl_queue_db.update(urls_to_update);
     }
     
-    // Make sure we did well ;-)
-    //validateQueue();
-    
     return rejects;
   }
 
@@ -463,27 +391,34 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     long dur = System.nanoTime() - start;
     
     double durr = Math.round(dur / 1000.0) / 1000.0;
-    logger.info("Sorting and selecting best URL out of {} hosts took {}ms -> resulting delay: {}ms for host {}", sorted.size(), durr, delay, best.host);
+    logger.debug("Sorting and selecting best URL out of {} hosts took {}ms -> resulting delay: {}ms for host {}", sorted.size(), durr, delay, best.host);
     if (best.nextFetchTime > threshold)
       return null;
     
     WebURL best_url = best.head;
     if (best_url == null)
-      throw new RuntimeException("best.head is null. This should not happen -> check enqueue / disqueue administration");
+      throw new RuntimeException("HostQueue head is null. This should not happen!");
     
     // Update the linkedlist in the crawl queue
+    crawl_queue_db.removeURL(best_url);
+    
     byte[] next_key = best_url.getNext();
     if (next_key == null) {
       // The queue is empty
       host_queue.remove(best.host);
     } else {
       // Move the head to the next element
-      best.head = crawl_queue_db.get(next_key);
+      if (best.tail.compareKey(next_key) == 0) {
+        best.head = best.tail;
+      } else {
+        best.head = crawl_queue_db.get(next_key);
+      }
+      
       best.head.setPrevious((byte []) null);
-      crawl_queue_db.update(best.head);
+      if (!crawl_queue_db.update(best.head))
+        throw new RuntimeException("Could not update URL in database: " + best.head.getURL());
     }
     
-    crawl_queue_db.removeURL(best_url);
     assign(best_url, crawler);
     in_progress_db.put(best_url);
     fetcher.select(best_url);
@@ -550,15 +485,17 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
           }
           
           if (hq.head.getDocid() == url.getDocid()) {
-            if (next == null)
+            if (next == null) {
               host_queue.remove(host);
+            }
             else
               hq.head = next;
           }
           
           if (hq.tail.getDocid() == url.getDocid()) {
-            if (prev == null)
+            if (prev == null) {
               host_queue.remove(host);
+            }
             else
               hq.tail = prev;
           }
@@ -568,6 +505,212 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
         return IterateAction.CONTINUE;
       }
     });
-    logger.info("Removed {} offspring of seed [[{}]]", num_removed.val, seed_doc_id);
+    logger.debug("Removed {} offspring of seed [[{}]]", num_removed.val, seed_doc_id);
+  }
+  
+  /**
+   * Validate the queue - check if the entire queue is traversable, and
+   * that head and tail corresponds to the data in the database.
+   * 
+   * It will also check the other way around: traverse all URLs in the database
+   * and check if they have a corresponding HostQueue object.
+   * 
+   * @return A host for which the queue failed, of * if the count did not match
+   *         between the crawl_queue_db and the host_queue. When no problems
+   *         were detected, null is returned.
+   */
+  public String validateQueue() {
+    HostQueue hq = null;
+    byte [] error_key = null;
+    WebURL error_url = null;
+    WebURL error_url2 = null;
+    
+    long st = System.nanoTime();
+    int url_counter = 0;
+    try {
+      for (Map.Entry<String, BerkeleyDBQueue.HostQueue> e : host_queue.entrySet()) {
+        hq = e.getValue();
+
+        if (hq.head == null)
+          throw new RuntimeException("HostQueue has no head");
+
+        if (hq.tail == null)
+          throw new RuntimeException("HostQueue has no tail");
+
+        WebURL cur = crawl_queue_db.get(hq.head.getKey());
+        if (cur == null) {
+          error_key = hq.head.getKey();
+          throw new RuntimeException("HostQueue head is not present in database. Missing docid: " + hq.head.getDocid());
+        }
+
+        if (cur.getDocid() != hq.head.getDocid()) {
+          error_key = hq.head.getKey();
+          error_url = cur;
+          throw new RuntimeException("HostQueue head's docid does not match database - db says: " + cur.getDocid() + " - HostQueue says: " + hq.head.getDocid());
+        }
+
+        WebURL tail_check = crawl_queue_db.get(hq.tail.getKey());
+        if (tail_check == null) {
+          error_url = tail_check;
+          error_key = hq.tail.getKey();
+          throw new RuntimeException("HostQueue tail is not present in database. Missing docid: " + hq.tail.getDocid());
+        }
+
+        if (tail_check.getDocid() != hq.tail.getDocid()) {
+          error_url = tail_check;
+          error_key = hq.tail.getKey();
+          throw new RuntimeException("HeadQueue tail's docid does not match database - db says: " + cur.getDocid() + " - HostQueue says: " + hq.head.getDocid());
+        }
+
+        WebURL prev = null;
+        WebURL next = null;
+        int i = 0;
+        while (cur != null) {
+          ++url_counter;
+          byte [] next_key = cur.getNext();
+          if (next_key != null) {
+            next = crawl_queue_db.get(next_key);
+            if (next == null) {
+              error_url = cur;
+              error_key = next_key;
+              throw new RuntimeException("HostQueue #" + i + " - next_key (error_key) is not null for current URL (error_url) but does not exist in database");
+            }
+
+            if (cur.getDocid() == hq.tail.getDocid()) {
+              error_url = cur;
+              error_key = next_key;
+              throw new RuntimeException("HostQueue #" + i + " is marked as tail, but next_key (error_key) is not null for URL (error_url)");
+            }
+          } else {
+            next = null;
+          }
+
+          byte [] prev_key = cur.getPrevious();
+          if (prev_key != null) {
+            WebURL tmp_prev = crawl_queue_db.get(prev_key);
+            if (tmp_prev == null) {
+              error_key = prev_key;
+              error_url = cur;
+              throw new RuntimeException("HostQueue #" + i + " - URL (error_url) has a prev_key (error_key) that is not present in the database");
+            }
+
+            if (prev == null) {
+              error_key = prev_key;
+              error_url = cur;
+              throw new RuntimeException("HostQueue #" + i + " - URL (error_url) has a prev_key (error_key) even though it is the head of the queue");
+            }
+
+            if (tmp_prev.getDocid() != prev.getDocid()) {
+              error_key = prev_key;
+              error_url = cur;
+              throw new RuntimeException("HostQueue #" + i + " - URL (error_url) has a prev_key (error_key) but it was reached from docid: " + prev.getDocid());
+            }
+          } else if (prev != null) {
+            error_url = cur;
+            error_url2 = prev;
+            throw new RuntimeException("HostQueue #" + i + " - URL (error_url) does noth ave a prev_key, but it is not the head of the queue, but was reached from a URL (error_url2)");
+          }
+
+          prev = cur;
+          cur = next;
+          ++i;
+        }
+        
+        if (prev.getDocid() != hq.tail.getDocid()) {
+          error_url = hq.tail;
+          error_url2 = prev;
+          
+          throw new RuntimeException("HostQueue has a tail (error_url) that is not the last element reachable through the queue (error_url2).");
+          
+        }
+      }
+
+      final Util.Reference<Integer> url_counter2 = new Util.Reference<Integer>(0);
+      crawl_queue_db.iterate(new Processor<WebURL, IterateAction>() {
+        @Override
+        public IterateAction apply(WebURL url) {
+          ++url_counter2.val;
+          String host = url.getURI().getHost();
+          HostQueue hq = host_queue.get(host);
+
+          if (hq == null)
+            throw new RuntimeException("Element in URL queue is not in host_queue - docid: " + url.getDocid());
+          return IterateAction.CONTINUE;
+        }
+      });
+      
+      if (url_counter != url_counter2.val) {
+        logger.error("Traversing HostQueue results in {} URLs, traversing crawl_queue_db results in {} URLs", url_counter, url_counter2.val);
+        return "*";
+      }
+    } catch (RuntimeException e) {
+      logger.error("Failed to validate HostQueue for host: {} - Error: {}", hq.host, e.getMessage());
+      
+      if (error_key != null) {
+        logger.error("Error-key: {}", error_key);
+      }
+      
+      if (error_url != null) {
+        logger.error(
+            "Error-url - URL: {} Docid: {} Seed: {} Priority: {} Depth: {} Key: {}", 
+            error_url.getURL(), error_url.getDocid(), error_url.getSeedDocid(),
+            error_url.getPriority(), error_url.getDepth(), error_url.getKey()
+        );
+      }
+      
+      if (error_url2 != null) {
+        logger.error(
+            "Error-url2 - URL: {} Docid: {} Seed: {} Priority: {} Depth: {} Key: {}", 
+            error_url2.getURL(), error_url2.getDocid(), error_url2.getSeedDocid(), 
+            error_url2.getPriority(), error_url2.getDepth(), error_url2.getKey()
+        );
+      }
+      
+      showHostQueue(hq);
+      return hq.host;
+    }
+    
+    long dur = System.nanoTime() - st;
+    logger.info("Validating host_queue took {} ms", Math.round(dur / 10000.0) / 100.0);
+    return null;
+  }
+  
+  public void showHostQueue(String host) {
+    HostQueue hq = host_queue.get(host);
+    if (hq != null)
+      showHostQueue(hq);
+  }
+  /**
+   * List a queue to the logger, useful for debugging issues.
+   * 
+   * @param hq The HostQueue that should be listed
+   */
+  protected void showHostQueue(HostQueue hq) {
+    logger.error("-- Listing queue for host {}", hq.host);
+    WebURL cur = hq.head;
+    String host = hq.host;
+    int i = 0;
+    boolean tailFound = false;
+    while (cur != null) {
+      String special = "";
+      if (cur.getDocid() == hq.head.getDocid())
+        special += "[HEAD]";
+      if (cur.getDocid() == hq.tail.getDocid()) {
+        special += "[TAIL]";
+        tailFound = true;
+      }
+      
+      logger.error("#{}{}.\tURL: {}\tDocid: {}\tPriority: {}\tDepth: {}", i, special, cur.getURL(), cur.getDocid(), cur.getPriority(), cur.getDepth());
+      ++i;
+      byte [] next_key = cur.getNext();
+      cur = crawl_queue_db.get(next_key);
+      if (cur == null && next_key != null) {
+        logger.error("-- Error: URL referenced by getNext() could not be found - Key: {}", next_key);
+      }
+    }
+    
+    if (!tailFound)
+      logger.error("!Tail.\tURL: {}\tDocid: {}\tPriority: {}\tDepth: {}", hq.tail.getURL(), hq.tail.getDocid(), hq.tail.getPriority(), hq.tail.getDepth());
+    logger.error("-- Finished listing queue for host {}", host);
   }
 }

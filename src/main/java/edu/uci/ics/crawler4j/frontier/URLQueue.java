@@ -117,7 +117,6 @@ public class URLQueue {
       return false;
     
     txn = env.beginTransaction(null, null);
-    
     return true;
   }
 
@@ -129,6 +128,7 @@ public class URLQueue {
   protected void commit() {
     if (txn != null) {
       txn.commit();
+      txn = null;
     }
   }
 
@@ -140,6 +140,7 @@ public class URLQueue {
   protected void abort() {
     if (txn != null) {
       txn.abort();
+      txn = null;
     }
   }
 
@@ -446,6 +447,7 @@ public class URLQueue {
         DatabaseEntry value = new DatabaseEntry();
         DatabaseEntry new_value = new DatabaseEntry();
         webURLBinding.objectToEntry(url, new_value);
+        BerkeleyDBQueue.logger.info("Multi-Updating key: {} - {}", url, url.getKey());
         
         OperationStatus result = cursor.getSearchKey(key, value, null);
         if (result != OperationStatus.SUCCESS)

@@ -62,7 +62,8 @@ public abstract class AbstractCrawlQueue implements CrawlQueue {
       throw new RuntimeException("Crawler " + crawler.getId() + " was assigned "
           + " URL " + prev.getURL() + "(" + prev.getDocid() + "), cannot assign a new one");
     }
-    logger.debug("Assigning URL {} ({}) to crawler {}", url.getURL(), url.getDocid(), crawler.getMyId());
+    if (logger.isTraceEnabled())
+      logger.trace("Assigning URL {} ({}) to crawler {}", url.getURL(), url.getDocid(), crawler.getMyId());
   }
   
   protected void unassign(WebURL url, WebCrawler crawler) {
@@ -77,7 +78,8 @@ public abstract class AbstractCrawlQueue implements CrawlQueue {
           + " - cannot unassign " + url.getURL() + " (" + url.getDocid() + ")");
     }
     urls_in_progress.remove(crawler.getId());
-    logger.debug("Removing assignment of URL {} ({}) to crawler {}", url.getURL(), url.getDocid(), crawler.getMyId());
+    if (logger.isTraceEnabled())
+      logger.trace("Removing assignment of URL {} ({}) to crawler {}", url.getURL(), url.getDocid(), crawler.getMyId());
   }
   
   @Override

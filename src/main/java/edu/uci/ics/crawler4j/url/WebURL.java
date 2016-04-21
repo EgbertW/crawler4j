@@ -313,8 +313,8 @@ public class WebURL implements Serializable, Comparable<WebURL> {
     this.host_next_url = next_key;
   }
   
-  public void setNext(WebURL previous_url) {
-    setNext(previous_url != null ? previous_url.getKey() : null);
+  public void setNext(WebURL next_url) {
+    setNext(next_url != null ? next_url.getKey() : null);
   }
   
   public byte [] getNext() {
@@ -373,7 +373,7 @@ public class WebURL implements Serializable, Comparable<WebURL> {
     
     for (int i = 0; i < KEY_SIZE; ++i)
       if (mykey[i] != okey[i])
-        return okey[i] - mykey[i];
+        return Byte.toUnsignedInt(mykey[i]) - Byte.toUnsignedInt(okey[i]);
     
     return 0;
   }
