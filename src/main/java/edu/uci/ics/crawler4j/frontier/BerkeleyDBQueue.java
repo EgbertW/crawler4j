@@ -101,10 +101,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       if (lhs.nextFetchTime != rhs.nextFetchTime)
         return Long.compare(lhs.nextFetchTime,  rhs.nextFetchTime);
       
-      if (lhs.head.getPriority() != rhs.head.getPriority())
-        return lhs.head.getPriority() - rhs.head.getPriority();
-      
-      return lhs.host.compareTo(rhs.host);
+      return lhs.head.compareTo(rhs.head);
     }
   }
   
