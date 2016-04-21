@@ -50,7 +50,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
   protected URLQueue crawl_queue_db;
   
   /** 
-   * The list of URLs that are in progress -> have been assigned to a crawler.
+   * The list of URLs that are in progress -&gt; have been assigned to a crawler.
    * When a URL is assigned using getNextURL, it will be moved from the 
    * crawl_queue_db to the in_progress_db queue from which it will be removed
    * as soon as the page has been retrieved or cancelled using setFinished or
