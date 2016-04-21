@@ -447,7 +447,6 @@ public class URLQueue {
         DatabaseEntry value = new DatabaseEntry();
         DatabaseEntry new_value = new DatabaseEntry();
         webURLBinding.objectToEntry(url, new_value);
-        BerkeleyDBQueue.logger.info("Multi-Updating key: {} - {}", url, url.getKey());
         
         OperationStatus result = cursor.getSearchKey(key, value, null);
         if (result != OperationStatus.SUCCESS)
