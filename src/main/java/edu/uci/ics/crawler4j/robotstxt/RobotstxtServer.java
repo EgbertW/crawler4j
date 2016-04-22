@@ -189,7 +189,7 @@ public class RobotstxtServer {
         String ctype = page.getContentType();
         if (ctype == null)
           ctype = "";
-        if (Util.hasPlainTextContent(page.getContentType())) {
+        if (Util.getContentType(page.getContentType(),page.getContentData())=="Plaintext") {
           try {
             String content = "";
             if (page.getContentData() != null) {
