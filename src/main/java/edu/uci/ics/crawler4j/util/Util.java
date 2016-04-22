@@ -18,52 +18,37 @@
 package edu.uci.ics.crawler4j.util;
 
 import java.nio.ByteBuffer;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import edu.uci.ics.crawler4j.parser.Parser;
 
 /**
  * @author Yasser Ganjisaffar
  */
 public class Util
 {
-    static List<String> CONTENT_TYPE_WHITELIST = Arrays.asList("text/plain", // Plain
-                                                                             // text
-            "text/html", // HTML
-            "application/xhtml+xml", // XHTML
-            "application/pdf", // PDF
-            "application/msword", // .doc (Word)
-            "application/vnd.oasis.opendocument.text", // .odt (LibreOffice
-                                                       // Writer)
-            "application/vnd.oasis.opendocument.presentation", // .odp
-                                                               // (LibreOffice
-                                                               // Impress)
-            "application/vnd.sun.xml.writer", // .sxw (OpenOffice Writer)
-            "application/vnd.sun.xml.writer.global", // .sxg (OpenOffice Writer)
-            "application/vnd.sun.xml.impress", // .sxi (OpenOffice Impress)
-            "application/vnd.ms-powerpoint", // .ppt (Powerpoint)
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-                                                                                       // (Word)
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation" // Powerpoint
-                                                                                        // .pptx
-    );
 
-    public static class Reference<T>
-    {
+    protected static final Logger logger = LoggerFactory.getLogger(Util.class);
+    
+    public static class Reference<T> {
         public T val;
 
-        public Reference(T val)
-        {
+        public Reference(T val) {
             this.val = val;
         }
 
-        public T assign(T val)
-        {
+        public T assign(T val) {
             return this.val = val;
         }
 
-        public T get()
-        {
+        public T get() {
             return val;
         }
     }
@@ -143,161 +128,123 @@ public class Util
      */
     public static String getContentType(String contentType, byte[] content)
     {
-        if (hasHTMLContent(contentType, content))
+        //First check if contentType is text/plain to filter out the robots.txt
+        if (contentType.contains("text/plain"))
+            return "Plaintext";
+
+        //Check the byte order marker
+        String UTFType = checkByteOrderMarker(content);
+        String stringContent;
+        try
         {
-            return "Html";
+            stringContent = new String(content, UTFType);
         }
-        else if (hasWhiteListContent(contentType))
-        {
-            return "WhiteList";
-        }
-        else if (hasXMLContent(contentType, content))
-        {
-            if (hasHTMLContent(contentType, content))
-                return "Html";
-            else
-                return "XML";
-        }
-        else if (hasBinaryContent(contentType, content))
+        catch (UnsupportedEncodingException e)
         {
             return "Binary";
         }
-        else if (hasPlainTextContent(contentType))
+        
+        //Check the non ascii for the UTF-8
+        if (checkNonAscii(content) && (!(UTFType.equals("UTF-16") || UTFType.equals("UTF-32"))))
         {
-            return "Plaintext";
+            return "Binary";
         }
-        return "Unknown";
+        else
+        {
+            if (hasHTMLContent(stringContent))
+            {
+                return "Html";
+            }
+            else if (hasXMLContent(stringContent))
+            {
+
+                return "XML";
+            }
+            else
+            {
+                return "Plaintext";
+            }
+        }
     }
 
     /**
      * Detect if the document has is of the type html
      *
-     * @param contentType
-     *            the type where the site is addressed with
-     * @param content
-     *            the text of the site
-     * @return true if it is a html site and false when it is not
-     */
-    public static boolean hasHTMLContent(String contentType, byte[] content)
-    {
-        String typeStr = (contentType != null) ? contentType.toLowerCase() : "";
-        try
-        {
-            String str = "";
-            if (contentType.contains("UTF-16") || content.toString().startsWith("0xFE")
-                    || content.toString().startsWith("0xFF"))
-            {
-                str = new String(content, "UTF-16");
-            }
-            else if (contentType.contains("UTF-32"))
-            {
-                str = new String(content, "UTF-32");
-            }
-            else
-            {
-                str = new String(content, "UTF-8");
-            }
-            if (str.contains("<html") || typeStr.contains("text/html"))
-                return true;
-        }
-        catch (UnsupportedEncodingException e)
-        {
-            e.printStackTrace();
-        }
-        return false;
-    }
-
-    /**
-     * Detect of content is of type pdf
+     * @param str: the content string
      *
-     * @param contentType
-     *            the type of the content
-     * @return true if the content is of type pdf and false when it is not
+     * @return true if it is a html document and false when it is not
      */
-
-    public static boolean hasWhiteListContent(String contentType)
-    {
-        String typeStr = (contentType != null) ? contentType.toLowerCase() : "";
-        for (String whiteListContentType : CONTENT_TYPE_WHITELIST)
-        {
-            if (typeStr.startsWith(whiteListContentType))
+    public static boolean hasHTMLContent(String str)
+    {    
+        if(str.contains("<!doctype") || str.contains("<html")|| str.contains("<body")||str.contains("<head"))
                 return true;
-        }
         return false;
     }
 
     /**
      * Detect if the document is of the type of XML
      *
-     * @param contentType
-     *            the type of the document
-     * @param content
-     *            the text in the document
+     * @param str: the content string
+     *
      * @return true if it of the type of XML
      */
-    public static boolean hasXMLContent(String contentType, byte[] content)
+    public static boolean hasXMLContent(String str)
     {
-        String typeStr = (contentType != null) ? contentType.toLowerCase() : "";
-        try
-        {
-            // Try to parse content as UTF-8 to see if it's xml or xhtml+xml
-            String str = new String(content, "UTF-8");
-            if (str.startsWith("<?xml") || typeStr.contains("xml"))
+            if (str.startsWith("<?xml"))
                 return true;
-        }
-        catch (UnsupportedEncodingException e)
-        {
-            e.printStackTrace();
-        }
         return false;
     }
 
-    /**
-     * Detect if the document is of the type of binary so application or audio
-     * etc
-     * 
-     * @param contentType
-     *            the type where the document is addressed with
-     * @param content
-     *            the text on the document
-     * @return true if the document is of the type of binary and false whenever
-     *         it is not
-     */
-    public static boolean hasBinaryContent(String contentType, byte[] content)
+/**
+ * 
+ * @param content : content of the document
+ * @return the type of UTF
+ */
+    
+    public static String checkByteOrderMarker(byte[] content)
     {
-        String typeStr = (contentType != null) ? contentType.toLowerCase() : "";
-
-        if (typeStr.isEmpty())
+        //Parse the integer to the hex string
+        String hexString0 = Integer.toHexString(content[0]);
+        String hexString1 = Integer.toHexString(content[1]);
+        String hexString2 = Integer.toHexString(content[2]);
+        String hexString3 = Integer.toHexString(content[3]);
+        
+        //Check for the UTF-32. UTF-32 is either 0 0 FE FF/ 0 0 FF FE
+        if (hexString0.equals("0") && hexString1 == "0")
         {
-            // No verdict - go count non-ascii characters to estimate
-            // probability on binary content
-            int nonASCII = 0;
-            int chars = Math.min(content.length, 2048);
-            for (int i = 0; i < chars; ++i)
-                if (content[i] < 32 || content[i] > 126)
-                    ++nonASCII;
-
-            // If 10% of the characters are outside of ASCII range and no
-            // content type has been specified,
-            // it's very likely that we're dealing with binary content here.
-            return (nonASCII / (double) chars) > 0.1;
+            if ((hexString2.equals("ffffffff") && hexString3.equals("fffffffe"))
+                    || (hexString2.equals("fffffffe") && hexString3.equals("ffffffff")))
+            {
+                return "UTF-32";
+            }
         }
-
-        return typeStr.contains("image") || typeStr.contains("audio") || typeStr.contains("video")
-                || typeStr.contains("application");
+        //Check for the UTF-32 and UTF-16. UTF-32 is either FE FF 0 0 / FF FE 0 0
+        //And UTF-16 is FE FF or FE FF.
+        if ((hexString0.equals("ffffffff") && hexString1.equals("fffffffe"))
+                || (hexString0.equals("fffffffe") && hexString1.equals("ffffffff")))
+        {
+            if (hexString2.equals("0") && hexString3.equals("0"))
+                return "UTF-32";
+            return "UTF-16";
+        }
+        return "UTF-8";
     }
-
-    /**
-     * Detect if the document is of type plain text
-     * 
-     * @param contentType
-     *            the type where the document is addressed with
-     * @return true if the document is of the type of plain text
-     */
-    public static boolean hasPlainTextContent(String contentType)
+    
+    
+    public static boolean checkNonAscii(byte[] content)
     {
-        String typeStr = (contentType != null) ? contentType.toLowerCase() : "";
-        return typeStr.startsWith("text/plain");
+        // No verdict - go count non-ascii characters to estimate
+        // probability on binary content
+        int nonASCII = 0;
+        int chars = Math.min(content.length, 2048);
+        for (int i = 0; i < chars; ++i)
+            if (content[i] < 32 || content[i] > 126)
+                ++nonASCII;
+
+        // If 10% of the characters are outside of ASCII range and no
+        // content type has been specified,
+        // it's very likely that we're dealing with binary content here.
+        return (nonASCII / (double) chars) > 0.1;
     }
 
   /**

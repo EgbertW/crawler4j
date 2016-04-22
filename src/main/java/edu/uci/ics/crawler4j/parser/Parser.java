@@ -61,8 +61,9 @@ public class Parser extends Configurable
 
     public void parse(Page page, String contextURL) throws NotAllowedContentException, ParseException
     {
+        
         String type = Util.getContentType(page.getContentType(), page.getContentData());
-        if (type == "Binary" || type == "XML" || type == "Unknown")
+        if (type == "Binary" || type == "XML")
         { // BINARY
             BinaryParseData parseData = new BinaryParseData();
             if (config.isIncludeBinaryContentInCrawling())
@@ -109,7 +110,7 @@ public class Parser extends Configurable
                 throw new ParseException();
             }
         }
-        else if (type == "Html" || type == "WhiteList")
+        else if (type == "Html")
         { // isHTML
             Metadata metadata = new Metadata();
             HtmlContentHandler contentHandler = new HtmlContentHandler();

@@ -64,16 +64,15 @@ public class RobotstxtParser {
       }
 
       // remove any html markup
-      line = line.replaceAll("<[^>]+>", "").trim();
+      line = line.replaceAll("<[^>]+> ", "").trim();
       if (line.isEmpty()) {
         continue;
       }
-      
+
       Matcher m = RULE_PATTERN.matcher(line);
       if (m.matches()) {
         String rule = m.group(1).toLowerCase();
         String value = m.group(2).trim();
-        
         if (VALID_RULES.contains(rule)) {
           if (rule.equals("user-agent")) {
             String currentUserAgent = value.toLowerCase();
@@ -98,7 +97,7 @@ public class RobotstxtParser {
         } else {
           if (!error_header_printed)
           {
-            logger.info("Error while processing robots.txt: {}", url);
+            logger.info("Error while processing 1 robots.txt: {}", url);
             error_header_printed = true;
           }
           logger.info("Unrecognized rule: {}", rule);
@@ -106,7 +105,7 @@ public class RobotstxtParser {
       } else {
         if (!error_header_printed)
         {
-          logger.info("Error while processing robots.txt: {}", url);
+          logger.info("Error while processing 2 robots.txt: {}", url);
           error_header_printed = true;
         }
         logger.info("Unrecognized line: {}", line);
