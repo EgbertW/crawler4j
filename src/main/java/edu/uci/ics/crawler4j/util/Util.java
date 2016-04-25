@@ -143,6 +143,7 @@ public class Util {
    * @return true if it is a html document and false when it is not
    */
   public static boolean hasHTMLContent(String str) {
+    str = str.toLowerCase();
     if (str.contains("<!doctype") || str.contains("<html") || str.contains("<body") || str.contains("<head"))
       return true;
     return false;
