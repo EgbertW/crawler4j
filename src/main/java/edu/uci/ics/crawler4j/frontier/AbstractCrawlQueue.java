@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import edu.uci.ics.crawler4j.crawler.CrawlConfig;
 import edu.uci.ics.crawler4j.crawler.WebCrawler;
+import edu.uci.ics.crawler4j.crawler.exceptions.QueueException;
 import edu.uci.ics.crawler4j.url.WebURL;
 
 public abstract class AbstractCrawlQueue implements CrawlQueue {
@@ -55,27 +56,26 @@ public abstract class AbstractCrawlQueue implements CrawlQueue {
     return urls_in_progress.get(crawler.getId());
   }
   
-  protected void assign(WebURL url, WebCrawler crawler) {
+  protected void assign(WebURL url, WebCrawler crawler) throws QueueException {
     WebURL prev = urls_in_progress.put(crawler.getId(), url);
     if (prev != null) {
-      urls_in_progress.remove(crawler.getThread().getId());
-      throw new RuntimeException("Crawler " + crawler.getId() + " was assigned "
-          + " URL " + prev.getURL() + "(" + prev.getDocid() + "), cannot assign a new one");
+      throw new QueueException("Crawler " + crawler.getId() + " was assigned "
+          + " URL " + prev.getURL() + "(" + prev.getDocid() + "), cannot assign a new one", prev);
     }
     if (logger.isTraceEnabled())
       logger.trace("Assigning URL {} ({}) to crawler {}", url.getURL(), url.getDocid(), crawler.getMyId());
   }
   
-  protected void unassign(WebURL url, WebCrawler crawler) {
+  protected void unassign(WebURL url, WebCrawler crawler) throws QueueException {
     WebURL prev = urls_in_progress.put(crawler.getId(), url);
     if (prev == null) {
-      throw new RuntimeException("Crawler " + crawler.getThread().getId() + " had no assigned URL "
-          + " - cannot unassign " + url.getURL() + " (" + url.getDocid() + ")");
+      throw new QueueException("Crawler " + crawler.getThread().getId() + " had no assigned URL "
+          + " - cannot unassign " + url.getURL() + " (" + url.getDocid() + ")", null);
     }
     if (prev.getDocid() != url.getDocid()) {
-      throw new RuntimeException("Crawler " + crawler.getThread().getId() + " was assigned URL "
+      throw new QueueException("Crawler " + crawler.getThread().getId() + " was assigned URL "
           + prev.getURL() + " (" + prev.getDocid() + ")"
-          + " - cannot unassign " + url.getURL() + " (" + url.getDocid() + ")");
+          + " - cannot unassign " + url.getURL() + " (" + url.getDocid() + ")", prev);
     }
     urls_in_progress.remove(crawler.getId());
     if (logger.isTraceEnabled())

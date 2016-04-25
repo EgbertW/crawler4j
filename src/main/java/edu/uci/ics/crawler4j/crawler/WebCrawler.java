@@ -27,6 +27,7 @@ import org.apache.http.impl.EnglishReasonPhraseCatalog;
 import edu.uci.ics.crawler4j.crawler.exceptions.ContentFetchException;
 import edu.uci.ics.crawler4j.crawler.exceptions.PageBiggerThanMaxSizeException;
 import edu.uci.ics.crawler4j.crawler.exceptions.ParseException;
+import edu.uci.ics.crawler4j.crawler.exceptions.QueueException;
 import edu.uci.ics.crawler4j.crawler.exceptions.RedirectException;
 import edu.uci.ics.crawler4j.fetcher.PageFetchResult;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
@@ -285,7 +286,16 @@ public class WebCrawler implements Runnable {
     while (true) {
       if (assignedURL == null) {
         isWaitingForNewURLs = true;
-        assignedURL = frontier.getNextURL(this, pageFetcher);
+        try {
+          assignedURL = frontier.getNextURL(this, pageFetcher);
+        } catch (QueueException e) {
+          WebURL url = e.getURL();
+          if (url == null)
+            logger.error("Could not obtain new URL as the frontier thinks that URL <null> was already assigned. Something went terribly wrong.");
+          else
+            logger.error("Could not obtain new URL as the frontier thinks that URL {} (docid: {}) was already assigned. Something went wrong.", url.getURL(), url.getDocid());
+          throw new RuntimeException(e);
+        }
         isWaitingForNewURLs = false;
       }
       if (assignedURL != null) {
@@ -306,7 +316,11 @@ public class WebCrawler implements Runnable {
         } finally {
           // Handle the finishing of the URL in the finally clause
           // to make sure it is ALWAYS executed, no matter what.
-          frontier.setProcessed(this, backup);
+          try {
+            frontier.setProcessed(this, backup);
+          } catch (QueueException e) {
+            logger.error("Could not set processed on URL {} (docid: {}) because frontier doesn't think it's assigned to me", backup.getURL(), backup.getDocid());
+          }
         }
         if (myController.isShuttingDown()) {
           logger.info("Exiting because of controller shutdown.");

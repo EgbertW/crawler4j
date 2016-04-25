@@ -19,6 +19,7 @@ import com.sleepycat.je.EnvironmentConfig;
 
 import edu.uci.ics.crawler4j.crawler.CrawlConfig;
 import edu.uci.ics.crawler4j.crawler.WebCrawler;
+import edu.uci.ics.crawler4j.crawler.exceptions.QueueException;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.frontier.BerkeleyDBQueue;
 import edu.uci.ics.crawler4j.url.WebURL;
@@ -87,7 +88,7 @@ public class BerkeleyDBQueueTest {
   }
   
   @Test
-  public void testURLPriorityOrder() throws URISyntaxException {
+  public void testURLPriorityOrder() throws URISyntaxException, QueueException {
     WebURL seed = new WebURL("http://www.test.com/");
     seed.setDocid(1);
     seed.setSeedDocid(1);
@@ -205,7 +206,7 @@ public class BerkeleyDBQueueTest {
    * @throws URISyntaxException
    */
   @Test
-  public void testBugHeadTailEquality() throws URISyntaxException {
+  public void testBugHeadTailEquality() throws URISyntaxException, QueueException {
     WebURL seed = new WebURL("http://www.test.com/");
     seed.setDocid(1);
     seed.setSeedDocid(1);
@@ -257,9 +258,9 @@ public class BerkeleyDBQueueTest {
    * @throws URISyntaxException When an incorrect URL is generated. Shouldn't hapen
    */
   @Test
-  public void testRandomHostQueueUtilization() throws URISyntaxException {
+  public void testRandomHostQueueUtilization() throws URISyntaxException, QueueException {
     Random gen = new Random(1234);
-    addURLs(gen, 50, 0.25);
+    addURLs(gen, 2000, 0.25);
     System.out.println("Generated " + queue.getQueueSize() + " urls");
     assertTrue(validate());
     
@@ -290,7 +291,7 @@ public class BerkeleyDBQueueTest {
       assertTrue(validate());
       
       int del = gen.nextInt(100);
-      if (del > 80) {
+      if (del > 60) {
         log.get(url.getURI().getHost()).add("Removing all offspring for seed: [[" + url.getSeedDocid() + "]]");
         queue.removeOffspring(url.getSeedDocid());
         assertTrue(validate());
@@ -301,7 +302,7 @@ public class BerkeleyDBQueueTest {
       
       int add = gen.nextInt(100);
       if (add > 90)
-        addURLs(gen, gen.nextInt(20), 0.05);
+        addURLs(gen, gen.nextInt(50), 0.15);
     }
   }
 

@@ -5,6 +5,7 @@ import java.util.List;
 
 import edu.uci.ics.crawler4j.crawler.CrawlConfig;
 import edu.uci.ics.crawler4j.crawler.WebCrawler;
+import edu.uci.ics.crawler4j.crawler.exceptions.QueueException;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.url.WebURL;
 
@@ -51,8 +52,9 @@ public interface CrawlQueue {
      *                last retrieve times in order to find the best
      *                URL respecting the politeness delay.
      * @return The next URL to crawl
+     * @throws QueueException When Crawler already has an assigned page
      */
-    public WebURL getNextURL(WebCrawler crawler, PageFetcher fetcher);
+    public WebURL getNextURL(WebCrawler crawler, PageFetcher fetcher) throws QueueException;
     
     /**
      * Indicate that the specified crawler will no longer
@@ -60,8 +62,9 @@ public interface CrawlQueue {
      * 
      * @param crawler The crawler that abandons the request
      * @param url The URL that is abandoned
+     * @throws QueueException When url was not assigned to crawler
      */
-    public void abandon(WebCrawler crawler, WebURL url);
+    public void abandon(WebCrawler crawler, WebURL url) throws QueueException;
     
     /**
      * Indicate that the specified crawler has completed retrieving
@@ -69,8 +72,9 @@ public interface CrawlQueue {
      * 
      * @param crawler The Crawler that fetched the URL
      * @param url The URL that has been retrieved
+     * @throws QueueException When url was not assigned to crawler
      */
-    public void setFinishedURL(WebCrawler crawler, WebURL url);
+    public void setFinishedURL(WebCrawler crawler, WebURL url) throws QueueException;
     
     /** 
      * Return the amount of URLs in the queue 

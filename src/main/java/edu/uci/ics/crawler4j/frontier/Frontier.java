@@ -35,6 +35,7 @@ import com.sleepycat.je.Environment;
 import edu.uci.ics.crawler4j.crawler.Configurable;
 import edu.uci.ics.crawler4j.crawler.CrawlConfig;
 import edu.uci.ics.crawler4j.crawler.WebCrawler;
+import edu.uci.ics.crawler4j.crawler.exceptions.QueueException;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.IterateAction;
@@ -112,6 +113,9 @@ public class Frontier extends Configurable {
       
       List<WebURL> queue_rejects = queue.enqueue(accepted);
       scheduledPages += (accepted.size() - queue_rejects.size());
+      
+      if (queue_rejects.size() > 0)
+        logger.error("Could not add all URLs to the list: {}/{} were rejected", accepted.size(), queue_rejects.size());
     }
     
     counters.setValue(Counters.ReservedCounterNames.SCHEDULED_PAGES, scheduledPages);
@@ -241,7 +245,7 @@ public class Frontier extends Configurable {
     }
   }
   
-  public WebURL getNextURL(WebCrawler crawler, PageFetcher pageFetcher) {
+  public WebURL getNextURL(WebCrawler crawler, PageFetcher pageFetcher) throws QueueException {
     while (true)
     {
       WebURL url;
@@ -279,8 +283,9 @@ public class Frontier extends Configurable {
    * 
    * @param crawler The crawler that has processed the URL
    * @param webURL The URL to set as processed
+   * @throws QueueException When webURL was not assigned to crawler.
    */
-  public void setProcessed(WebCrawler crawler, WebURL webURL) {
+  public void setProcessed(WebCrawler crawler, WebURL webURL) throws QueueException {
     counters.increment(Counters.ReservedCounterNames.PROCESSED_PAGES);
     synchronized (mutex) {
       queue.setFinishedURL(crawler, webURL);
@@ -340,7 +345,9 @@ public class Frontier extends Configurable {
 
   public void reassign(Thread oldthread, Thread newthread) {
     synchronized (mutex) {
-      queue.reassign(oldthread, newthread);
+      WebURL url = queue.reassign(oldthread, newthread);
+      if (url != null)
+        logger.info("Reassigning URL {} from crawl thread {} to crawl thread {}", url.getURL(), oldthread.getId(), newthread.getId());
     }
   }
 }

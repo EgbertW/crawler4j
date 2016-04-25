@@ -250,7 +250,7 @@ public class CrawlController extends Configurable {
                     if (!shuttingDown) {
                       logger.error("Thread {} was dead, I'll recreate it", i);
                       logger.error("No, I won't. I'm quitting", new Throwable());
-                      System.exit(1);;
+                      System.exit(1);
                       T crawler = crawlerFactory.newInstance();
                       Thread newthread = new Thread(crawler, "Crawler " + (i + 1));
                       threads.remove(i);

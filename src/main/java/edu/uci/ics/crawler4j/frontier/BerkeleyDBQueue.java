@@ -20,6 +20,7 @@ import com.sleepycat.je.Environment;
 
 import edu.uci.ics.crawler4j.crawler.CrawlConfig;
 import edu.uci.ics.crawler4j.crawler.WebCrawler;
+import edu.uci.ics.crawler4j.crawler.exceptions.QueueException;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.IterateAction;
@@ -67,7 +68,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
    * is used to quickly determine the best host and the best URL on that
    * host to fetch next.
    * 
-   * @author Egbert vand er Wal
+   * @author Egbert van der Wal
    */
   protected static class HostQueue {
     protected String host;
@@ -367,11 +368,11 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
   }
 
   @Override
-  public WebURL getNextURL(WebCrawler crawler, PageFetcher fetcher) {
+  public WebURL getNextURL(WebCrawler crawler, PageFetcher fetcher) throws QueueException {
     this.fetcher = fetcher;
     WebURL oldURL = getAssignedURL(crawler);
     if (oldURL != null)
-      throw new RuntimeException("Crawler " + crawler.getMyId() + " has not finished its previous URL: " + oldURL.getURL() + " (" + oldURL.getDocid() + ")");
+      throw new QueueException("Crawler " + crawler.getMyId() + " has not finished its previous URL: " + oldURL.getURL() + " (" + oldURL.getDocid() + ")", oldURL);
     
     if (host_queue.isEmpty())
       return null;
@@ -423,7 +424,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
   }
 
   @Override
-  public void abandon(WebCrawler crawler, WebURL url) {
+  public void abandon(WebCrawler crawler, WebURL url) throws QueueException {
     logger.info("Crawler {} abandons URL {}", crawler.getMyId(), url.getURL());
     unassign(url, crawler);
     in_progress_db.removeURL(url);
@@ -432,7 +433,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
   }
 
   @Override
-  public void setFinishedURL(WebCrawler crawler, WebURL url) {
+  public void setFinishedURL(WebCrawler crawler, WebURL url) throws QueueException {
     unassign(url, crawler);
     in_progress_db.removeURL(url);
   }
