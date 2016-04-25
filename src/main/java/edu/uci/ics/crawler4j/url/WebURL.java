@@ -373,7 +373,7 @@ public class WebURL implements Serializable, Comparable<WebURL> {
     
     for (int i = 0; i < KEY_SIZE; ++i)
       if (mykey[i] != okey[i])
-        return Byte.toUnsignedInt(mykey[i]) - Byte.toUnsignedInt(okey[i]);
+        return (mykey[i] & 0xFF) - (okey[i] & 0xFF);
     
     return 0;
   }
