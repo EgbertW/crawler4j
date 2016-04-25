@@ -40,6 +40,7 @@ import edu.uci.ics.crawler4j.url.URLCanonicalizer;
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.Net;
 import edu.uci.ics.crawler4j.util.Util;
+import edu.uci.ics.crawler4j.util.Util.ContentType;
 
 /**
  * @author Yasser Ganjisaffar
@@ -62,8 +63,8 @@ public class Parser extends Configurable
     public void parse(Page page, String contextURL) throws NotAllowedContentException, ParseException
     {
         
-        String type = Util.getContentType(page.getContentType(), page.getContentData());
-        if (type == "Binary" || type == "XML")
+        ContentType type = Util.getContentType(page.getContentType(), page.getContentData());
+        if (type == ContentType.BINARY)
         { // BINARY
             BinaryParseData parseData = new BinaryParseData();
             if (config.isIncludeBinaryContentInCrawling())
@@ -88,7 +89,29 @@ public class Parser extends Configurable
                 throw new NotAllowedContentException();
             }
         }
-        else if (type == "Plaintext")
+        else if (type == ContentType.XML)
+        { //XML
+          try
+          {
+              XMLParseData parseData = new XMLParseData();
+              if (page.getContentCharset() == null)
+              {
+                  parseData.setXMLContent(new String(page.getContentData()));
+              }
+              else
+              {
+                  parseData.setXMLContent(new String(page.getContentData(), page.getContentCharset()));
+              }
+              parseData.setOutgoingUrls(Net.extractUrls(parseData.getXMLContent()));
+              page.setParseData(parseData);
+          }
+          catch (Exception e)
+          {
+              logger.error("{}, while parsing: {}", e.getMessage(), page.getWebURL().getURL());
+              throw new ParseException();
+          }
+        }
+        else if (type == ContentType.TEXT)
         { // plain Text
             try
             {
@@ -110,7 +133,7 @@ public class Parser extends Configurable
                 throw new ParseException();
             }
         }
-        else if (type == "Html")
+        else if (type == ContentType.HTML)
         { // isHTML
             Metadata metadata = new Metadata();
             HtmlContentHandler contentHandler = new HtmlContentHandler();

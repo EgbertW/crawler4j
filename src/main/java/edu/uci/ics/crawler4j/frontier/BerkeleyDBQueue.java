@@ -637,10 +637,10 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
   }
 
   @Override
-  public void removeOffspring(long seed_doc_id) {
+  public void removeOffspring(final long seed_doc_id) {
     logger.trace("Removing all offspring for {}", seed_doc_id);
     final Util.Reference<Integer> num_removed = new Util.Reference<Integer>(0);
-    try {
+        try {
       crawl_queue_db.iterate(new DBVisitor() {
         @Override
         public IterateAction visit(WebURL url) throws TransactionAbort {

@@ -64,7 +64,7 @@ public class RobotstxtParser {
       }
 
       // remove any html markup
-      line = line.replaceAll("<[^>]+> ", "").trim();
+      line = line.replaceAll("<[^>]+>", "").trim();
       if (line.isEmpty()) {
         continue;
       }
@@ -97,7 +97,7 @@ public class RobotstxtParser {
         } else {
           if (!error_header_printed)
           {
-            logger.info("Error while processing 1 robots.txt: {}", url);
+            logger.info("Error while processing robots.txt: {}", url);
             error_header_printed = true;
           }
           logger.info("Unrecognized rule: {}", rule);
@@ -105,7 +105,7 @@ public class RobotstxtParser {
       } else {
         if (!error_header_printed)
         {
-          logger.info("Error while processing 2 robots.txt: {}", url);
+          logger.info("Error while processing robots.txt: {}", url);
           error_header_printed = true;
         }
         logger.info("Unrecognized line: {}", line);

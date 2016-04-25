@@ -40,6 +40,7 @@ import edu.uci.ics.crawler4j.fetcher.PageFetchResult;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.Util;
+import edu.uci.ics.crawler4j.util.Util.ContentType;
 
 /**
  * @author Yasser Ganjisaffar
@@ -189,7 +190,7 @@ public class RobotstxtServer {
         String ctype = page.getContentType();
         if (ctype == null)
           ctype = "";
-        if (Util.getContentType(page.getContentType(),page.getContentData())=="Plaintext") {
+        if (Util.getContentType(page.getContentType(),page.getContentData()) == ContentType.TEXT) {
           try {
             String content = "";
             if (page.getContentData() != null) {

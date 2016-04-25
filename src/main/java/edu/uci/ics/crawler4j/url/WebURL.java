@@ -367,7 +367,7 @@ public class WebURL implements Serializable, Comparable<WebURL> {
    *  
    * @param okey The key to compare with
    * @return -1 if the current URL comes before key, 1 if it comes after and 0 if they are equal
-   */
+   */ 
   public int compareKey(byte [] okey) {
     byte [] mykey = getKey();
     

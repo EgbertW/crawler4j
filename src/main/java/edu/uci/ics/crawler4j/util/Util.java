@@ -32,48 +32,23 @@ import edu.uci.ics.crawler4j.parser.Parser;
 /**
  * @author Yasser Ganjisaffar
  */
-public class Util
-{
+public class Util {
 
-    protected static final Logger logger = LoggerFactory.getLogger(Util.class);
-    
-    public static class Reference<T> {
-        public T val;
+  protected static final Logger logger = LoggerFactory.getLogger(Util.class);
 
-        public Reference(T val) {
-            this.val = val;
-        }
+  public static class Reference<T> {
+    public T val;
 
-        public T assign(T val) {
-            return this.val = val;
-        }
-
-        public T get() {
-            return val;
-        }
+    public Reference(T val) {
+      this.val = val;
     }
 
-    public static byte[] long2ByteArray(long l)
-    {
-        byte[] array = new byte[8];
-        int i;
-        int shift;
-        for (i = 0, shift = 56; i < 8; i++, shift -= 8)
-        {
-            array[i] = (byte) (0xFF & (l >> shift));
-        }
-        return array;
+    public T assign(T val) {
+      return this.val = val;
     }
 
-    public static byte[] int2ByteArray(int value)
-    {
-        byte[] b = new byte[4];
-        for (int i = 0; i < 4; i++)
-        {
-            int offset = (3 - i) * 8;
-            b[i] = (byte) ((value >>> offset) & 0xFF);
-        }
-        return b;
+    public T get() {
+      return val;
     }
   }
 
@@ -117,135 +92,106 @@ public class Util
     return bbuf.getLong();
   }
   
-    /**
-     * Detect the content type of a document
-     * 
-     * @param contentType
-     *            is the content type that is addressed to the document
-     * @param content
-     *            is the text of the document
-     * @return the type of the document
-     */
-    public static String getContentType(String contentType, byte[] content)
-    {
-        //First check if contentType is text/plain to filter out the robots.txt
-        if (contentType.contains("text/plain"))
-            return "Plaintext";
+  public enum ContentType {
+    TEXT, HTML, XML, BINARY
+  }
 
-        //Check the byte order marker
-        String UTFType = checkByteOrderMarker(content);
-        String stringContent;
-        try
-        {
-            stringContent = new String(content, UTFType);
-        }
-        catch (UnsupportedEncodingException e)
-        {
-            return "Binary";
-        }
-        
-        //Check the non ascii for the UTF-8
-        if (checkNonAscii(content) && (!(UTFType.equals("UTF-16") || UTFType.equals("UTF-32"))))
-        {
-            return "Binary";
-        }
-        else
-        {
-            if (hasHTMLContent(stringContent))
-            {
-                return "Html";
-            }
-            else if (hasXMLContent(stringContent))
-            {
+  /**
+   * Detect the content type of a document
+   * 
+   * @param contentType
+   *          is the content type that is addressed to the document
+   * @param content
+   *          is the text of the document
+   * @return the type of the document
+   */
+  public static ContentType getContentType(String contentType, byte[] content) {
+    // First check if contentType is text/plain to filter out the robots.txt
+    if (contentType.contains("text/plain"))
+      return ContentType.TEXT;
 
-                return "XML";
-            }
-            else
-            {
-                return "Plaintext";
-            }
-        }
+    // Check the byte order marker
+    String UTFType = checkByteOrderMarker(content);
+    String stringContent;
+    try {
+      stringContent = new String(content, UTFType);
+    } catch (UnsupportedEncodingException e) {
+      return ContentType.BINARY;
     }
 
-    /**
-     * Detect if the document has is of the type html
-     *
-     * @param str: the content string
-     *
-     * @return true if it is a html document and false when it is not
-     */
-    public static boolean hasHTMLContent(String str)
-    {    
-        if(str.contains("<!doctype") || str.contains("<html")|| str.contains("<body")||str.contains("<head"))
-                return true;
-        return false;
-    }
+    // Check the non ascii for the UTF-8
+    if (checkNonAscii(content) && (!(UTFType.equals("UTF-16") || UTFType.equals("UTF-32")))) {
+      return ContentType.BINARY;
+    } else {
+      if (hasHTMLContent(stringContent)) {
+        return ContentType.HTML;
+      } else if (hasXMLContent(stringContent)) {
 
-    /**
-     * Detect if the document is of the type of XML
-     *
-     * @param str: the content string
-     *
-     * @return true if it of the type of XML
-     */
-    public static boolean hasXMLContent(String str)
-    {
-            if (str.startsWith("<?xml"))
-                return true;
-        return false;
+        return ContentType.XML;
+      } else {
+        return ContentType.TEXT;
+      }
     }
+  }
 
-/**
- * 
- * @param content : content of the document
- * @return the type of UTF
- */
-    
-    public static String checkByteOrderMarker(byte[] content)
-    {
-        //Parse the integer to the hex string
-        String hexString0 = Integer.toHexString(content[0]);
-        String hexString1 = Integer.toHexString(content[1]);
-        String hexString2 = Integer.toHexString(content[2]);
-        String hexString3 = Integer.toHexString(content[3]);
-        
-        //Check for the UTF-32. UTF-32 is either 0 0 FE FF/ 0 0 FF FE
-        if (hexString0.equals("0") && hexString1 == "0")
-        {
-            if ((hexString2.equals("ffffffff") && hexString3.equals("fffffffe"))
-                    || (hexString2.equals("fffffffe") && hexString3.equals("ffffffff")))
-            {
-                return "UTF-32";
-            }
-        }
-        //Check for the UTF-32 and UTF-16. UTF-32 is either FE FF 0 0 / FF FE 0 0
-        //And UTF-16 is FE FF or FE FF.
-        if ((hexString0.equals("ffffffff") && hexString1.equals("fffffffe"))
-                || (hexString0.equals("fffffffe") && hexString1.equals("ffffffff")))
-        {
-            if (hexString2.equals("0") && hexString3.equals("0"))
-                return "UTF-32";
-            return "UTF-16";
-        }
-        return "UTF-8";
-    }
-    
-    
-    public static boolean checkNonAscii(byte[] content)
-    {
-        // No verdict - go count non-ascii characters to estimate
-        // probability on binary content
-        int nonASCII = 0;
-        int chars = Math.min(content.length, 2048);
-        for (int i = 0; i < chars; ++i)
-            if (content[i] < 32 || content[i] > 126)
-                ++nonASCII;
+  /**
+   * Detect if the document has is of the type html
+   *
+   * @param str:
+   *          the content string
+   *
+   * @return true if it is a html document and false when it is not
+   */
+  public static boolean hasHTMLContent(String str) {
+    if (str.contains("<!doctype") || str.contains("<html") || str.contains("<body") || str.contains("<head"))
+      return true;
+    return false;
+  }
 
-        // If 10% of the characters are outside of ASCII range and no
-        // content type has been specified,
-        // it's very likely that we're dealing with binary content here.
-        return (nonASCII / (double) chars) > 0.1;
+  /**
+   * Detect if the document is of the type of XML
+   *
+   * @param str:
+   *          the content string
+   *
+   * @return true if it of the type of XML
+   */
+  public static boolean hasXMLContent(String str) {
+    if (str.startsWith("<?xml"))
+      return true;
+    return false;
+  }
+
+  /**
+   * 
+   * @param content
+   *          : content of the document
+   * @return the type of UTF
+   */
+
+  public static String checkByteOrderMarker(byte[] content) {
+    // Parse the integer to the hex string
+    // Check for the UTF-32. UTF-32 is either 0 0 FE FF/ 0 0 FF FE
+    if (content[0] == 0 && content[1] == 0) {
+      if (((content[2] & 0xFF) == 0xFF && (content[3] & 0xFE) == 0xFE)
+          || ((content[2] & 0xFE) == 0xFE && (content[3] & 0xFF) == 0xFF)) {
+        return "UTF-32";
+      }
     }
+    // Check for the UTF-32 and UTF-16. UTF-32 is either FE FF 0 0 / FF FE 0 0
+    // And UTF-16 is FE FF or FE FF.
+
+    if (((content[0] & 0xFF) == 0xFF && (content[1] & 0xFE) == 0xFE)
+        || ((content[0] & 0xFE) == 0xFE && (content[1] & 0xFF) == 0xFF)) {
+
+      if (content[2] == 0 && content[3] == 0) {
+
+        return "UTF-32";
+      }
+      return "UTF-16";
+    }
+    return "UTF-8";
+  }
 
   /**
    * Sleep for a minimum number of milliseconds, ignoring
@@ -291,5 +237,20 @@ public class Util
       
       return System.currentTimeMillis() - start; 
     }
+  }
+
+  public static boolean checkNonAscii(byte[] content) {
+    // No verdict - go count non-ascii characters to estimate
+    // probability on binary content
+    int nonASCII = 0;
+    int chars = Math.min(content.length, 2048);
+    for (int i = 0; i < chars; ++i)
+      if (content[i] < 32 || content[i] > 126)
+        ++nonASCII;
+
+    // If 10% of the characters are outside of ASCII range and no
+    // content type has been specified,
+    // it's very likely that we're dealing with binary content here.
+    return (nonASCII / (double) chars) > 0.1;
   }
 }
