@@ -107,7 +107,7 @@ public class Util {
    */
   public static ContentType getContentType(String contentType, byte[] content) {
     // First check if contentType is text/plain to filter out the robots.txt
-    if (contentType.contains("text/plain"))
+    if (contentType.contains("text/plain") && contentType!=null)
       return ContentType.TEXT;
 
     // Check the byte order marker
@@ -118,7 +118,6 @@ public class Util {
     } catch (UnsupportedEncodingException e) {
       return ContentType.BINARY;
     }
-
     // Check the non ascii for the UTF-8
     if (checkNonAscii(content) && (!(UTFType.equals("UTF-16") || UTFType.equals("UTF-32")))) {
       return ContentType.BINARY;
@@ -126,7 +125,6 @@ public class Util {
       if (hasHTMLContent(stringContent)) {
         return ContentType.HTML;
       } else if (hasXMLContent(stringContent)) {
-
         return ContentType.XML;
       } else {
         return ContentType.TEXT;
@@ -137,7 +135,7 @@ public class Util {
   /**
    * Detect if the document has is of the type html
    *
-   * @param str:
+   * @param str
    *          the content string
    *
    * @return true if it is a html document and false when it is not
@@ -152,8 +150,7 @@ public class Util {
   /**
    * Detect if the document is of the type of XML
    *
-   * @param str:
-   *          the content string
+   * @param str the content string
    *
    * @return true if it of the type of XML
    */
