@@ -87,7 +87,7 @@ public class URLQueue {
     this.env = env;
     DatabaseConfig dbConfig = new DatabaseConfig();
     dbConfig.setAllowCreate(true);
-    dbConfig.setTransactional(resumable);
+    dbConfig.setTransactional(true);
     dbConfig.setDeferredWrite(!resumable);
     urlsDB = env.openDatabase(null, dbName, dbConfig);
     webURLBinding = new WebURLTupleBinding();
