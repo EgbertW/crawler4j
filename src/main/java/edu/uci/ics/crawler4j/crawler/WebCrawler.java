@@ -294,7 +294,7 @@ public class WebCrawler implements Runnable {
             logger.error("Could not obtain new URL as the frontier thinks that URL <null> was already assigned. Something went terribly wrong.");
           else
             logger.error("Could not obtain new URL as the frontier thinks that URL {} (docid: {}) was already assigned. Something went wrong.", url.getURL(), url.getDocid());
-          throw new RuntimeException(e);
+          myController.shutdown();
         }
         isWaitingForNewURLs = false;
       }
@@ -320,6 +320,8 @@ public class WebCrawler implements Runnable {
             frontier.setProcessed(this, backup);
           } catch (QueueException e) {
             logger.error("Could not set processed on URL {} (docid: {}) because frontier doesn't think it's assigned to me", backup.getURL(), backup.getDocid());
+            logger.error("Stacktrace", e);
+            myController.shutdown();
           }
         }
         if (myController.isShuttingDown()) {

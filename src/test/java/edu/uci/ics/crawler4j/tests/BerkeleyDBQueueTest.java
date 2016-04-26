@@ -260,7 +260,7 @@ public class BerkeleyDBQueueTest {
   @Test
   public void testRandomHostQueueUtilization() throws URISyntaxException, QueueException {
     Random gen = new Random(1234);
-    addURLs(gen, 2000, 0.25);
+    addURLs(gen, 200, 0.25);
     System.out.println("Generated " + queue.getQueueSize() + " urls");
     assertTrue(validate());
     
@@ -302,7 +302,7 @@ public class BerkeleyDBQueueTest {
       
       int add = gen.nextInt(100);
       if (add > 90)
-        addURLs(gen, gen.nextInt(50), 0.15);
+        addURLs(gen, gen.nextInt(20), 0.15);
     }
   }
 

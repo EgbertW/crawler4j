@@ -23,6 +23,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
@@ -41,6 +44,9 @@ import edu.uci.ics.crawler4j.util.Util;
  * @author Yasser Ganjisaffar
  */
 public class URLQueue {
+  /** Logger */
+  public static final Logger log = LoggerFactory.getLogger(URLQueue.class);
+  
   /** The BerkeleyDB database storing the URL queue*/
   private final Database urlsDB;
   
@@ -53,9 +59,6 @@ public class URLQueue {
   /** The BerkeleyDB environment */
   private final Environment env;
   
-  /** Whether crawling is resumable */
-  private final boolean resumable;
-
   /** The binding to convert WebURLs to bytes and back */
   private final WebURLTupleBinding webURLBinding;
 
@@ -64,6 +67,14 @@ public class URLQueue {
   
   /** The current transaction */
   private Transaction txn = null;
+  
+  public static class TransactionAbort extends Exception {
+    private static final long serialVersionUID = -1248234463257519891L;
+    private TransactionAbort() {}
+    private TransactionAbort(String msg) { super(msg); }
+    private TransactionAbort(Throwable e) { super(e); }
+    private TransactionAbort(String msg, Throwable e) {super(msg, e); }
+  }
 
   /**
    * Create the URLQueue, backed by a Berkeley database
@@ -74,7 +85,6 @@ public class URLQueue {
    */
   public URLQueue(Environment env, String dbName, boolean resumable) {
     this.env = env;
-    this.resumable = resumable;
     DatabaseConfig dbConfig = new DatabaseConfig();
     dbConfig.setAllowCreate(true);
     dbConfig.setTransactional(resumable);
@@ -88,7 +98,7 @@ public class URLQueue {
       seedCountDB = env.openDatabase(null, dbName + "_seedcount", dbConfig);
       DatabaseEntry key = new DatabaseEntry();
       DatabaseEntry value = new DatabaseEntry();
-      boolean shouldCommit = beginTransaction();
+      Transaction my_txn = beginTransaction();
       try (Cursor cursor = seedCountDB.openCursor(txn, null)) {
         OperationStatus result = cursor.getFirst(key, value, null);
 
@@ -101,8 +111,19 @@ public class URLQueue {
           result = cursor.getNext(key, value, null);
         }
       } finally {
-        if (shouldCommit)
-          commit();
+        commit(my_txn);
+      }
+    } else {
+      try {
+        iterate(new Processor<WebURL, IterateAction>() {
+          @Override
+          public IterateAction apply(WebURL arg) {
+            return IterateAction.REMOVE;
+          }
+        });
+      } catch (TransactionAbort e) {
+        // Could not clear database, this does not bode well
+        throw new RuntimeException("Failed to clear out database - check filesystem");
       }
     }
   }
@@ -112,12 +133,12 @@ public class URLQueue {
    * 
    * @return True if a transaction was started (and should be commited, false otherwise)
    */
-  protected boolean beginTransaction() {
-    if (txn != null || !resumable)
-      return false;
+  protected Transaction beginTransaction() {
+    if (txn != null)
+      return null;
     
     txn = env.beginTransaction(null, null);
-    return true;
+    return txn;
   }
 
   /**
@@ -125,23 +146,29 @@ public class URLQueue {
    * nothing happens.
    * 
    */
-  protected void commit() {
+  protected void commit(Transaction txn) {
     if (txn != null) {
+      if (txn != this.txn)
+        throw new RuntimeException("Transaction is commited in incorrect order - " + this.txn + " is open, so " + txn + " cannot be commited.");
+      
       txn.commit();
-      txn = null;
+      this.txn = null;
     }
   }
 
   /**
-   * Abort the specified transaction. If it is null,
+   * Abort the active transaction. If it is null,
    * nothing happens.
    * 
+   * @param cause The reason to abort
    */
-  protected void abort() {
+  protected void abort(Throwable cause) throws TransactionAbort {
     if (txn != null) {
+      log.error("Aborting transaction: " + txn);
       txn.abort();
       txn = null;
     }
+    throw new TransactionAbort(cause);
   }
 
   /**
@@ -159,14 +186,14 @@ public class URLQueue {
    * 
    * @param max The maximum number of items to return
    * @return The list of items, limited by max
-   * @throws DatabaseException When the sleepycat database throws an error
+   * @throws TransactionAbort When the sleepycat database throws an error
    */
-  public List<WebURL> shift(int max) throws DatabaseException {
+  public List<WebURL> shift(int max) throws TransactionAbort {
     synchronized (mutex) {
       List<WebURL> results = new ArrayList<>(max);
       DatabaseEntry key = new DatabaseEntry();
       DatabaseEntry value = new DatabaseEntry();
-      boolean shouldCommit = beginTransaction();
+      Transaction my_txn = beginTransaction();
       try (Cursor cursor = openCursor(txn)) {
         OperationStatus result = cursor.getFirst(key, value, null);
         int matches = 0;
@@ -182,12 +209,9 @@ public class URLQueue {
           result = cursor.getNext(key, value, null);
         }
       } catch (DatabaseException e) {
-        abort();
-        txn = null;
-        throw e;
+        abort(e);
       } finally {
-        if (shouldCommit)
-          commit();
+        commit(my_txn);
       }
         
       return results;
@@ -306,7 +330,7 @@ public class URLQueue {
       boolean added = false;
       DatabaseEntry value = new DatabaseEntry();
       webURLBinding.objectToEntry(url, value);
-      boolean shouldCommit = beginTransaction();
+      Transaction my_txn = beginTransaction();
       // Check if the key already exists
       DatabaseEntry key = getDatabaseEntryKey(url);
       DatabaseEntry retrieve_value = new DatabaseEntry();
@@ -315,8 +339,7 @@ public class URLQueue {
         seedIncrease(url.getSeedDocid());
         added = true;
       }
-      if (shouldCommit)
-        commit();
+      commit(my_txn);
       
       return added;
     }
@@ -331,7 +354,7 @@ public class URLQueue {
   public List<WebURL> put(Collection<WebURL> urls) {
     synchronized (mutex) {
       List<WebURL> rejects = new ArrayList<WebURL>();
-      boolean shouldCommit = beginTransaction();
+      Transaction my_txn = beginTransaction();
       for (WebURL url : urls) {
         DatabaseEntry value = new DatabaseEntry();
         webURLBinding.objectToEntry(url, value);
@@ -347,8 +370,7 @@ public class URLQueue {
         }
       }
       
-      if (shouldCommit)
-        commit();
+      commit(my_txn);
       
       return rejects;
     }
@@ -377,11 +399,11 @@ public class URLQueue {
    * @param callback The callback object that gets all the elements
    * @return A WebURL for which REMOVE_AND_RETURN or RETURN was returned, or null if that did not happen.
    */
-  public WebURL iterate(Processor<WebURL, IterateAction> callback) {
+  public WebURL iterate(Processor<WebURL, IterateAction> callback) throws TransactionAbort {
     synchronized (mutex) {
       DatabaseEntry key = new DatabaseEntry();
       DatabaseEntry value = new DatabaseEntry();
-      boolean shouldCommit = beginTransaction();
+      Transaction my_txn = beginTransaction();
       WebURL url;
       try (Cursor cursor = openCursor(txn)) {
         OperationStatus result = cursor.getFirst(key, value,  null);
@@ -403,11 +425,11 @@ public class URLQueue {
           
           result = cursor.getNext(key, value, null);
         }
-      } catch (DatabaseException e) {
-        abort();
+      } catch (Exception e) {
+        abort(e);
+        my_txn = null;
       } finally {
-        if (shouldCommit)
-          commit();
+        commit(my_txn);
       }
     }
     
@@ -421,12 +443,16 @@ public class URLQueue {
    */
   public List<WebURL> getDump() {
     final List<WebURL> list = new ArrayList<WebURL>();
-    iterate(new Processor<WebURL, IterateAction>() {
-      public IterateAction apply(WebURL url) {
-        list.add(url);
-        return IterateAction.CONTINUE;
-      }
-    });
+    try {
+      iterate(new Processor<WebURL, IterateAction>() {
+        public IterateAction apply(WebURL url) {
+          list.add(url);
+          return IterateAction.CONTINUE;
+        }
+      });
+    } catch (TransactionAbort e) {
+      log.error("Transaction aborted while generating dump", e);
+    }
     
     return list;
   }
@@ -439,7 +465,7 @@ public class URLQueue {
    * @see #update(WebURL)
    */
   public void update(Collection<WebURL> urls) throws DatabaseException {
-    boolean shouldCommit = beginTransaction();
+    Transaction my_txn = beginTransaction();
     
     try (Cursor cursor = openCursor(txn)) {
       for (WebURL url : urls) {
@@ -449,14 +475,16 @@ public class URLQueue {
         webURLBinding.objectToEntry(url, new_value);
         
         OperationStatus result = cursor.getSearchKey(key, value, null);
-        if (result != OperationStatus.SUCCESS)
-          throw new RuntimeException("Failed to find URL to update");
+        if (result != OperationStatus.SUCCESS) {
+          abort(new RuntimeException("Failed to find URL to update"));
+        }
         
         cursor.putCurrent(new_value);
       }
+    } catch (TransactionAbort e) {
+      my_txn = null;
     } finally {
-      if (shouldCommit)
-        commit();
+      commit(my_txn);
     }
   }
   
@@ -470,7 +498,7 @@ public class URLQueue {
    * @throws DatabaseException When something went wrong in the database
    */
   public boolean update(WebURL url) throws DatabaseException {
-    boolean shouldCommit = beginTransaction();
+    Transaction my_txn = beginTransaction();
     DatabaseEntry key = getDatabaseEntryKey(url);
     DatabaseEntry value = new DatabaseEntry();
     DatabaseEntry new_value = new DatabaseEntry();
@@ -482,9 +510,9 @@ public class URLQueue {
         cursor.putCurrent(new_value);
         return true;
       }
+      log.error("Could not find URL to update using key: {}", url.getKey());
     } finally {
-      if (shouldCommit)
-        commit();
+      commit(my_txn);
     }
     
     // Not found
@@ -500,7 +528,7 @@ public class URLQueue {
     DatabaseEntry value = new DatabaseEntry();
     WebURL url;
     
-    boolean shouldCommit = beginTransaction();
+    Transaction my_txn = beginTransaction();
     try (Cursor cursor = openCursor(txn)) {
       OperationStatus result = cursor.getSearchKey(dbkey, value, null);
       
@@ -512,8 +540,7 @@ public class URLQueue {
       // Not found
       return null;
     } finally {
-      if (shouldCommit)
-        commit();
+      commit(my_txn);
     }
   }
 
@@ -523,7 +550,7 @@ public class URLQueue {
    * @param seed_doc_id The seed for which to remove the offspring
    * @return The number of elements removed
    */
-  public int removeOffspring(final long seed_doc_id) {
+  public int removeOffspring(final long seed_doc_id) throws TransactionAbort {
     final Util.Reference<Integer> num_removed = new Util.Reference<Integer>(0);
     iterate(new Processor<WebURL, IterateAction>() {
       @Override
@@ -539,33 +566,47 @@ public class URLQueue {
     return num_removed.get();
   }
   
+  public void transaction(Runnable r) throws TransactionAbort {
+    Transaction my_txn = beginTransaction();
+    try {
+      r.run();
+    } catch (Throwable e) {
+      log.error("Reverting transaction after exception", e);
+      abort(e);
+      my_txn = null;
+    } finally {
+      commit(my_txn);
+    }
+  }
+  
   /**
    * Remove a specific WebURL from the queue
    * 
    * @param webUrl The URL to remove
-   * @return True if the element was removed, false otherwise.
+   * throws TransactionAbort If the element could not be removed
    */
-  public boolean removeURL(WebURL webUrl) {
+  public void removeURL(WebURL webUrl) throws TransactionAbort {
+    Transaction my_txn = beginTransaction();
     synchronized (mutex) {
       boolean removed = false;
       DatabaseEntry key = getDatabaseEntryKey(webUrl);
       DatabaseEntry value = new DatabaseEntry();
-      boolean shouldCommit = beginTransaction();
       try (Cursor cursor = openCursor(txn)) {
         OperationStatus result = cursor.getSearchKey(key, value, null);
 
-        if (result == OperationStatus.SUCCESS) {
-          result = cursor.delete();
-          if (result == OperationStatus.SUCCESS) {
-            removed = true;
-            return true;
-          }
-        }
-      } catch (DatabaseException e) {
-        abort();
+        if (result != OperationStatus.SUCCESS) 
+          throw new TransactionAbort("Element does not exist in queue");
+        
+        result = cursor.delete();
+        if (result != OperationStatus.SUCCESS)
+          throw new TransactionAbort("Element could not be removed");
+        
+        removed = true;
+      } catch (Exception e) {
+        abort(e);
+        my_txn = null;
       } finally {
-        if (shouldCommit)
-          commit();
+        commit(my_txn);
 
         if (removed && webUrl.getSeedDocid() >= 0)
           seedDecrease(webUrl.getSeedDocid());
@@ -573,6 +614,5 @@ public class URLQueue {
           throw new RuntimeException("URL " + webUrl.getURL() + " was not present in list of processed pages. " + (removed ? "true" : "false") + " seeddocid: " + webUrl.getSeedDocid());
       }
     }
-    return false;
   }
 }
