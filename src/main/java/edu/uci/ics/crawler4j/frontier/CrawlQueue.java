@@ -22,7 +22,6 @@ public interface CrawlQueue {
      * 
      * @param url The URL to enqueue
      * @return True if the URL was added, false if it was already on the list or rejected
-     * @throws QueueException When the database is broken
      */
     public boolean enqueue(WebURL url);
     
@@ -107,10 +106,9 @@ public interface CrawlQueue {
      * to the amount of crawlers there are.
      * 
      * @param seed_doc_id The docid of the seed for which to remove the offspring
-     * @throws QueueException 
      */
-    public void removeOffspring(long seed_doc_id) throws QueueException;
-
+    public void removeOffspring(long seed_doc_id);
+    
     /**
      * Reassign a URL from an old thread to a new thread
      * 

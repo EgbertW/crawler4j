@@ -241,15 +241,7 @@ public class Frontier extends Configurable {
   public void setSeedFinished(long seed_doc_id) {
     synchronized (mutex) {
       finished_seeds.add(seed_doc_id);
-      try {
-        queue.removeOffspring(seed_doc_id);
-      } catch (QueueException e) {
-        logger.error("An error occured while removing all offspring of {}", seed_doc_id);;
-        logger.error("Stacktrace", e);
-        
-        // We don't have any way to fix this
-        throw new RuntimeException(e);
-      }
+      queue.removeOffspring(seed_doc_id);
     }
   }
   

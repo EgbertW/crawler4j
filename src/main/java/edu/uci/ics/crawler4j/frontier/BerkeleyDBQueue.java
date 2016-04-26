@@ -552,7 +552,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
   }
 
   @Override
-  public void removeOffspring(long seed_doc_id) throws QueueException {
+  public void removeOffspring(long seed_doc_id) {
     final Util.Reference<Integer> num_removed = new Util.Reference<Integer>(0);
     try {
       crawl_queue_db.iterate(new Processor<WebURL, IterateAction>() {
@@ -642,7 +642,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       });
     } catch (TransactionAbort e) {
       logger.error("Removing offspring failed, stacktrace follows", e);
-      throw new QueueException("Iteration failen while removing offspring", null);
+      throw new RuntimeException("Iteration failed while removing offspring");
     }
     logger.debug("Removed {} offspring of seed [[{}]]", num_removed.val, seed_doc_id);
   }

@@ -145,6 +145,7 @@ public class URLQueue {
    * Commit the specified transaction. If it is null,
    * nothing happens.
    * 
+   * @param txn The transaction to commit.
    */
   protected void commit(Transaction txn) {
     if (txn != null) {
@@ -161,6 +162,7 @@ public class URLQueue {
    * nothing happens.
    * 
    * @param cause The reason to abort
+   * @throws TransactionAbort Always, in order to propagate the exception
    */
   protected void abort(Throwable cause) throws TransactionAbort {
     if (txn != null) {
@@ -398,6 +400,7 @@ public class URLQueue {
    * 
    * @param callback The callback object that gets all the elements
    * @return A WebURL for which REMOVE_AND_RETURN or RETURN was returned, or null if that did not happen.
+   * @throws TransactionAbort Thrown when iteration was aborted and the transaction was rolled back.
    */
   public WebURL iterate(Processor<WebURL, IterateAction> callback) throws TransactionAbort {
     synchronized (mutex) {
@@ -550,18 +553,22 @@ public class URLQueue {
    * @param seed_doc_id The seed for which to remove the offspring
    * @return The number of elements removed
    */
-  public int removeOffspring(final long seed_doc_id) throws TransactionAbort {
+  public int removeOffspring(final long seed_doc_id) {
     final Util.Reference<Integer> num_removed = new Util.Reference<Integer>(0);
-    iterate(new Processor<WebURL, IterateAction>() {
-      @Override
-      public IterateAction apply(WebURL url) {
-        if (url.getSeedDocid() == seed_doc_id) {
-          num_removed.assign(num_removed.get() + 1);
-          return IterateAction.REMOVE;
+    try {
+      iterate(new Processor<WebURL, IterateAction>() {
+        @Override
+        public IterateAction apply(WebURL url) {
+          if (url.getSeedDocid() == seed_doc_id) {
+            num_removed.assign(num_removed.get() + 1);
+            return IterateAction.REMOVE;
+          }
+          return IterateAction.CONTINUE;
         }
-        return IterateAction.CONTINUE;
-      }
-    });
+      });
+    } catch (TransactionAbort e) {
+      throw new RuntimeException(e);
+    }
     
     return num_removed.get();
   }
@@ -583,7 +590,7 @@ public class URLQueue {
    * Remove a specific WebURL from the queue
    * 
    * @param webUrl The URL to remove
-   * throws TransactionAbort If the element could not be removed
+   * @throws TransactionAbort If the element could not be removed
    */
   public void removeURL(WebURL webUrl) throws TransactionAbort {
     Transaction my_txn = beginTransaction();
