@@ -59,18 +59,18 @@ public abstract class AbstractCrawlQueue implements CrawlQueue {
   protected void assign(WebURL url, WebCrawler crawler) throws QueueException {
     WebURL prev = urls_in_progress.put(crawler.getId(), url);
     if (prev != null) {
-      throw new QueueException("Crawler " + crawler.getId() + " was assigned "
-          + " URL " + prev.getURL() + "(" + prev.getDocid() + "), cannot assign a new one", prev);
+      throw new QueueException(crawler + " was assigned "
+          + " " + prev + ", cannot assign a new one", prev);
     }
     if (logger.isTraceEnabled())
-      logger.trace("Assigning URL {} ({}) to crawler {}", url.getURL(), url.getDocid(), crawler.getMyId());
+      logger.trace("Assigning {} to {}", url, crawler);
   }
   
   protected void unassign(WebURL url, WebCrawler crawler) throws QueueException {
     WebURL prev = urls_in_progress.put(crawler.getId(), url);
     if (prev == null) {
-      throw new QueueException("Crawler " + crawler.getThread().getId() + " had no assigned URL "
-          + " - cannot unassign " + url.getURL() + " (" + url.getDocid() + ")", null);
+      throw new QueueException(crawler + " had no assigned URL "
+          + " - cannot unassign " + url, null);
     }
     if (prev.getDocid() != url.getDocid()) {
       throw new QueueException("Crawler " + crawler.getThread().getId() + " was assigned URL "
@@ -79,7 +79,7 @@ public abstract class AbstractCrawlQueue implements CrawlQueue {
     }
     urls_in_progress.remove(crawler.getId());
     if (logger.isTraceEnabled())
-      logger.trace("Removing assignment of URL {} ({}) to crawler {}", url.getURL(), url.getDocid(), crawler.getMyId());
+      logger.trace("Removing assignment of {} to {}", url, crawler);
   }
   
   @Override

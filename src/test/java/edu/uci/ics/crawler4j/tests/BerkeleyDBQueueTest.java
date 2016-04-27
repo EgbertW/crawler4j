@@ -24,6 +24,7 @@ import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.frontier.BerkeleyDBQueue;
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.IO;
+import edu.uci.ics.crawler4j.util.Util.Reference;
 
 /**
  * Test the BerkeleyDBQueue implementation.
@@ -306,6 +307,126 @@ public class BerkeleyDBQueueTest {
     }
   }
 
+  private void runThread(int id) throws QueueException, URISyntaxException {
+    Thread ct = Thread.currentThread();
+    Random gen = new Random(id);
+        
+    try {
+      Thread.sleep(500);
+    } catch (InterruptedException e)
+    {}
+    
+    WebCrawler cw = new WebCrawler();
+    cw.setMyId(id + 1);
+    ct.setName("Crawler " + (id + 1));
+    cw.setThread(ct);
+    
+    while (queue.getQueueSize() > 0) {
+      WebURL url;
+      synchronized (queue) {
+        url = queue.getNextURL(cw, fetcher);
+        assertTrue(validate());
+      }
+      
+      if (url == null)
+        continue;
+      
+      log.get(url.getURI().getHost()).add("Selected doc ##" + url.getDocid() + "## of seed [[" + url.getSeedDocid() + "]] - prio: " + url.getPriority() + " depth: " + url.getDepth() + " URL: " + url.getURL());
+      
+      int ab = gen.nextInt(100);
+      if (ab > 70) {
+        log.get(url.getURI().getHost()).add("Abandoned doc ##" + url.getDocid() + "## of seed [[" + url.getSeedDocid() + "]] - prio: " + url.getPriority() + " depth: " + url.getDepth() + " URL: " + url.getURL());
+        synchronized (queue) {
+          queue.abandon(cw, url);
+          assertTrue(validate());
+        }
+        continue;
+      }
+      
+      try {
+        Thread.sleep(500 + gen.nextInt(2500));
+      } catch (InterruptedException e) {}
+      
+      log.get(url.getURI().getHost()).add("Finished doc ##" + url.getDocid() + "## of seed [[" + url.getSeedDocid() + "]] - prio: " + url.getPriority() + " depth: " + url.getDepth() + " URL: " + url.getURL());
+      synchronized (queue) {
+        queue.setFinishedURL(cw, url);
+        removeURL(url.getDocid());
+        fetcher.unselect(url);
+        assertTrue(validate());
+      }
+      
+      int del = gen.nextInt(100);
+      if (del > 60) {
+        log.get(url.getURI().getHost()).add("Removing all offspring for seed: [[" + url.getSeedDocid() + "]]");
+        synchronized (queue) {
+          queue.removeOffspring(url.getSeedDocid());
+          assertTrue(validate());
+          // Find and remove seed
+          removeSeed(url.getSeedDocid());
+        }
+      }
+      
+      int add = gen.nextInt(100);
+      if (add > 90) {
+        synchronized (queue) {
+          addURLs(gen, gen.nextInt(40), 0.15);
+        }
+      }
+    }
+    System.out.println("Crawler " + (id + 1) + " has finished, goodbye");
+  }
+  
+  /**
+   * This test performs a random batch of common operations on the queue
+   * and performs a validateQueue operation after each of them in order to make
+   * sure the queue administration is handled properly. For a more thorough
+   * test, increase the numbers in the addURLs invocations.
+   * 
+   * @throws URISyntaxException When an incorrect URL is generated. Shouldn't happen
+   * @throws QueueException When the queue is invalid
+   */
+  @Test
+  public void testMPRandomHostQueueUtilization() throws URISyntaxException, QueueException {
+    int nthreads = 32;
+    Thread [] threads = new Thread[nthreads];
+    final Reference<Integer> cnt = new Reference<Integer>(0);
+    for (int i = 0; i < nthreads; ++i) {
+      threads[i] = new Thread(new Runnable() { 
+        public void run() {
+          int myid = ++cnt.val;
+          try {
+            runThread(myid);
+          } catch (Exception e) {}
+        }
+      });
+      threads[i].start();
+    }
+    
+    Random gen = new Random(1234);
+    
+    synchronized (queue) {
+      System.out.println("Generated " + queue.getQueueSize() + " urls");
+      addURLs(gen, 2000, 0.25);
+      assertTrue(validate());
+    }
+    
+    while (true) {
+      int alive = 0;
+      for (Thread t : threads) {
+        if (t.isAlive())
+          ++alive;
+      }
+      if (alive > 0) {
+        System.out.println(alive + " threads are still alive, waiting");
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException e) {}
+      } else {
+        break;
+      }
+    }
+  }
+  
   /**
    * Validate the host queue, and, if an error occurs,
    * list the events leading up to that event.

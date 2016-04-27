@@ -134,6 +134,15 @@ public class WebCrawler implements Runnable {
   public int getMyId() {
     return myId;
   }
+  
+  /**
+   * Only to be use from tests
+   * 
+   * @param id The ID to set
+   */
+  public void setMyId(int id) {
+    this.myId = id;
+  }
 
   public CrawlController getMyController() {
     return myController;
@@ -539,5 +548,10 @@ public class WebCrawler implements Runnable {
 
   public boolean isNotWaitingForNewURLs() {
     return !isWaitingForNewURLs;
+  }
+  
+  @Override
+  public String toString() {
+    return "Crawler " + myId + " (Thread: " + myThread.getId() + ")";
   }
 }
