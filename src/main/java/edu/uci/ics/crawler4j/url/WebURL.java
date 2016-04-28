@@ -294,7 +294,7 @@ public class WebURL implements Serializable, Comparable<WebURL> {
 
   @Override
   public String toString() {
-    return "WebURL: " + url + " (did:" + docid + " pid:" + parentDocid + " sid:" + seedDocid + " pr:" + priority + " dp:" + depth;
+    return "WebURL: " + url + " (did:" + docid + " pid:" + parentDocid + " sid:" + seedDocid + " pr:" + priority + " dp:" + depth + ")";
   }
   
   public void setPrevious(WebURL previous_url) {

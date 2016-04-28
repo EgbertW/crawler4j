@@ -584,7 +584,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     }
     
     if (debug)
-      logger.trace("Assigning best {} to crawler: {} with thread: {}", best_url, crawler);
+      logger.trace("Assigning best {} to crawler: {}", best_url, crawler);
     
     try {
       assign(best_url, crawler);
@@ -663,7 +663,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
                 if (prev != null) {
                   logger.error("{} step(s) backward: {} (docid: {}, seed: {}, parent: {}) - prev: {} next: {}", rc, prev.getURL(), prev.getDocid(), prev.getSeedDocid(), prev.getParentDocid(), prev.getPrevious(), prev.getNext());
                 } else {
-                  logger.error("{} step(s) backward: {}", cur.getPrevious());
+                  logger.error("{} step(s) backward: {} (docid: {})", rc, cur.getPrevious(), Util.extractLongFromByteArray(cur.getPrevious(), 2));
                   break;
                 }
                 cur = prev;
@@ -684,7 +684,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
                 if (next != null) {
                   logger.error("{} step(s) forward: {} (docid: {}, seed: {}, parent: {}) - prev: {} next: {}", rc, next.getURL(), next.getDocid(), next.getSeedDocid(), next.getParentDocid(), next.getPrevious(), next.getNext());
                 } else {
-                  logger.error("{} step(s) forward: {}", cur.getNext());
+                  logger.error("{} step(s) forward: {} (docid: {})", rc, cur.getNext(), Util.extractLongFromByteArray(cur.getNext(), 2));
                   break;
                 }
                 cur = next;

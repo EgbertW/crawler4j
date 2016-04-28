@@ -89,6 +89,24 @@ public class Util {
     return value;
   }
 
+  public static int extractIntFromByteArray(byte[] b, int offset) {
+    int value = 0;
+    for (int i = 0; i < 4; i++) {
+      int shift = (4 - 1 - i) * 8;
+      value += (b[i + offset] & 0x000000FF) << shift;
+    }
+    return value;
+  }
+  
+  public static long extractLongFromByteArray(byte[] b, int offset) {
+    int value = 0;
+    for (int i = 0; i < 8; i++) {
+      int shift = (8 - 1 - i) * 8;
+      value += (b[i + offset] & 0x000000FF) << shift;
+    }
+    return value;
+  }
+  
   public static boolean hasBinaryContent(String contentType, byte [] content) {
     String typeStr = (contentType != null) ? contentType.toLowerCase() : "";
 
