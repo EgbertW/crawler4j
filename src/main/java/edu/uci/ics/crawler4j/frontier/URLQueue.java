@@ -83,7 +83,7 @@ public class URLQueue {
    * @param dbName The name of the BDB database
    * @param resumable Whether this database may be reused on a new run.
    */
-  public URLQueue(Environment env, String dbName, boolean resumable) {
+  public URLQueue(Environment env, String dbName, boolean resumable) throws TransactionAbort {
     this.env = env;
     DatabaseConfig dbConfig = new DatabaseConfig();
     dbConfig.setAllowCreate(true);
@@ -110,6 +110,9 @@ public class URLQueue {
           }
           result = cursor.getNext(key, value, null);
         }
+      } catch (Exception e) {
+        abort(e);
+        my_txn = null;
       } finally {
         commit(my_txn);
       }
@@ -137,8 +140,7 @@ public class URLQueue {
     if (txn != null)
       return null;
     
-    txn = env.beginTransaction(null, null);
-    return txn;
+    return txn = env.beginTransaction(null, null);
   }
 
   /**
@@ -212,6 +214,7 @@ public class URLQueue {
         }
       } catch (DatabaseException e) {
         abort(e);
+        my_txn = null;
       } finally {
         commit(my_txn);
       }
@@ -238,15 +241,21 @@ public class URLQueue {
    * @param docid The seed docid for which to set the counter
    * @param value The new value for the counter
    */
-  private void setSeedCount(Long docid, Integer value) {
+  private void setSeedCount(Long docid, Integer value) throws TransactionAbort {
     DatabaseEntry key = new DatabaseEntry(Util.long2ByteArray(docid));
     if (value <= 0) {
       synchronized (mutex) {
         seedCount.remove(docid);
         if (seedCountDB != null) {
-          Transaction txn = env.beginTransaction(null, null);
-          seedCountDB.delete(txn, key);
-          txn.commit();
+          Transaction my_txn = beginTransaction();
+          try {
+            seedCountDB.delete(txn, key);
+          } catch (DatabaseException e) {
+            abort(e);
+            my_txn = null;
+          } finally {
+            commit(my_txn);
+          }
         }
       }
       return;
@@ -255,10 +264,16 @@ public class URLQueue {
     synchronized (mutex) {
       seedCount.put(docid, value);
       if (seedCountDB != null) {
-        DatabaseEntry val = new DatabaseEntry(Util.int2ByteArray(value));
-        Transaction txn = env.beginTransaction(null, null);
-        seedCountDB.put(txn, key, val);
-        txn.commit();
+        Transaction my_txn = beginTransaction();
+        try {
+          DatabaseEntry val = new DatabaseEntry(Util.int2ByteArray(value));
+          seedCountDB.put(txn, key, val);
+        } catch (DatabaseException e) {
+          abort(e);
+          my_txn = null;
+        } finally {
+          commit(my_txn);
+        }
       }
     }
   }
@@ -268,7 +283,7 @@ public class URLQueue {
    * 
    * @param docid The seed docid for which to increment the counter
    */
-  public void seedIncrease(Long docid) {
+  public void seedIncrease(Long docid) throws TransactionAbort {
     seedIncrease(docid, 1);
   }
   
@@ -278,7 +293,7 @@ public class URLQueue {
    * @param docid The seed docid for which to increase the counter
    * @param amount The amount by which to increase it
    */
-  public void seedIncrease(Long docid, Integer amount) {
+  public void seedIncrease(Long docid, Integer amount) throws TransactionAbort {
     synchronized (mutex) {
       setSeedCount(docid, getSeedCount(docid) + amount);
     }
@@ -289,7 +304,7 @@ public class URLQueue {
    * 
    * @param docid The seed docid for which to decrement the counter
    */
-  public void seedDecrease(Long docid) {
+  public void seedDecrease(Long docid) throws TransactionAbort {
     seedIncrease(docid, -1);
   }
   
@@ -299,7 +314,7 @@ public class URLQueue {
    * @param docid The seed doc id for which to decrease the counter
    * @param amount The amount by which to reduce it
    */
-  public void seedDecrease(Long docid, Integer amount) {
+  public void seedDecrease(Long docid, Integer amount) throws TransactionAbort {
     seedIncrease(docid, -amount);
   }
 
@@ -326,22 +341,29 @@ public class URLQueue {
    * 
    * @param url The URL to add
    * @return True if the URL was added, false if it was already in the queue
+   * @throws TransactionAbort When something went wrong and the transaction was aborted
    */
-  public boolean put(WebURL url) {
+  public boolean put(WebURL url) throws TransactionAbort {
     synchronized (mutex) {
       boolean added = false;
       DatabaseEntry value = new DatabaseEntry();
       webURLBinding.objectToEntry(url, value);
       Transaction my_txn = beginTransaction();
-      // Check if the key already exists
-      DatabaseEntry key = getDatabaseEntryKey(url);
-      DatabaseEntry retrieve_value = new DatabaseEntry();
-      if (urlsDB.get(txn, key, retrieve_value, null) == OperationStatus.NOTFOUND) {
-        urlsDB.put(txn, key, value);
-        seedIncrease(url.getSeedDocid());
-        added = true;
+      try { 
+        // Check if the key already exists
+        DatabaseEntry key = getDatabaseEntryKey(url);
+        DatabaseEntry retrieve_value = new DatabaseEntry();
+        if (urlsDB.get(txn, key, retrieve_value, null) == OperationStatus.NOTFOUND) {
+          urlsDB.put(txn, key, value);
+          seedIncrease(url.getSeedDocid());
+          added = true;
+        }
+      } catch (DatabaseException | TransactionAbort e) {
+        abort(e);
+        my_txn = null;
+      } finally {
+        commit(my_txn);
       }
-      commit(my_txn);
       
       return added;
     }
@@ -352,27 +374,33 @@ public class URLQueue {
    * 
    * @param urls The list of URLs to add
    * @return The number of URLs added. Duplicates are not added again.
+   * @throws TransactionAbort When something went wrong and the transaction was aborted
    */
-  public List<WebURL> put(Collection<WebURL> urls) {
+  public List<WebURL> put(Collection<WebURL> urls) throws TransactionAbort {
     synchronized (mutex) {
       List<WebURL> rejects = new ArrayList<WebURL>();
       Transaction my_txn = beginTransaction();
-      for (WebURL url : urls) {
-        DatabaseEntry value = new DatabaseEntry();
-        webURLBinding.objectToEntry(url, value);
+      try {
+        for (WebURL url : urls) {
+          DatabaseEntry value = new DatabaseEntry();
+          webURLBinding.objectToEntry(url, value);
         
-        // Check if the key already exists
-        DatabaseEntry key = getDatabaseEntryKey(url);
-        DatabaseEntry retrieve_value = new DatabaseEntry();
-        if (urlsDB.get(txn, key, retrieve_value, null) == OperationStatus.NOTFOUND) {
-          urlsDB.put(txn, key, value);
-          seedIncrease(url.getSeedDocid());
-        } else {
-          rejects.add(url);
+          // Check if the key already exists
+          DatabaseEntry key = getDatabaseEntryKey(url);
+          DatabaseEntry retrieve_value = new DatabaseEntry();
+          if (urlsDB.get(txn, key, retrieve_value, null) == OperationStatus.NOTFOUND) {
+            urlsDB.put(txn, key, value);
+            seedIncrease(url.getSeedDocid());
+          } else {
+            rejects.add(url);
+          }
         }
+      } catch (DatabaseException | TransactionAbort e) {
+        abort(e);
+        my_txn = null;
+      } finally {
+        commit(my_txn);
       }
-      
-      commit(my_txn);
       
       return rejects;
     }
@@ -464,10 +492,10 @@ public class URLQueue {
    * Update a set of URLs in the database in one transaction.
    * 
    * @param urls The URLS to update
-   * @throws DatabaseException Whenever something goes wrong
+   * @throws TransactionAbort Whenever something goes wrong
    * @see #update(WebURL)
    */
-  public void update(Collection<WebURL> urls) throws DatabaseException {
+  public void update(Collection<WebURL> urls) throws TransactionAbort {
     Transaction my_txn = beginTransaction();
     
     try (Cursor cursor = openCursor(txn)) {
@@ -484,7 +512,8 @@ public class URLQueue {
         
         cursor.putCurrent(new_value);
       }
-    } catch (TransactionAbort e) {
+    } catch (DatabaseException | TransactionAbort e) {
+      abort(e);
       my_txn = null;
     } finally {
       commit(my_txn);
@@ -500,7 +529,7 @@ public class URLQueue {
    * @return True when the update succeeded, false otherwise
    * @throws DatabaseException When something went wrong in the database
    */
-  public boolean update(WebURL url) throws DatabaseException {
+  public boolean update(WebURL url) throws TransactionAbort {
     Transaction my_txn = beginTransaction();
     DatabaseEntry key = getDatabaseEntryKey(url);
     DatabaseEntry value = new DatabaseEntry();
@@ -514,6 +543,9 @@ public class URLQueue {
         return true;
       }
       log.error("Could not find URL to update using key: {}", url.getKey());
+    } catch (DatabaseException e) {
+      abort(e);
+      my_txn = null;
     } finally {
       commit(my_txn);
     }
@@ -522,7 +554,7 @@ public class URLQueue {
     return false;
   }
   
-  public WebURL get(byte [] key) throws DatabaseException {
+  public WebURL get(byte [] key) throws TransactionAbort {
     if (key == null)
       return null;
     
@@ -539,12 +571,15 @@ public class URLQueue {
         url = webURLBinding.entryToObject(value);
         return url;
       }
-      
-      // Not found
-      return null;
+    } catch (DatabaseException e) {
+      abort(e);
+      my_txn = null;
     } finally {
       commit(my_txn);
     }
+    
+    // Not found
+    return null;
   }
 
   /**
@@ -553,8 +588,9 @@ public class URLQueue {
    * @param seed_doc_id The seed for which to remove the offspring
    * @return The number of elements removed
    */
-  public int removeOffspring(final long seed_doc_id) {
+  public int removeOffspring(final long seed_doc_id) throws TransactionAbort {
     final Util.Reference<Integer> num_removed = new Util.Reference<Integer>(0);
+    Transaction my_txn = beginTransaction();
     try {
       iterate(new Processor<WebURL, IterateAction>() {
         @Override
@@ -567,7 +603,10 @@ public class URLQueue {
         }
       });
     } catch (TransactionAbort e) {
-      throw new RuntimeException(e);
+      abort(e);
+      my_txn = null;
+    } finally {
+      commit(my_txn);
     }
     
     return num_removed.get();
@@ -577,7 +616,7 @@ public class URLQueue {
     Transaction my_txn = beginTransaction();
     try {
       r.run();
-    } catch (Throwable e) {
+    } catch (Exception e) {
       log.error("Reverting transaction after exception", e);
       abort(e);
       my_txn = null;
@@ -608,6 +647,8 @@ public class URLQueue {
         if (result != OperationStatus.SUCCESS)
           throw new TransactionAbort("Element could not be removed");
         
+        if (webUrl.getSeedDocid() >= 0)
+          seedDecrease(webUrl.getSeedDocid());
         removed = true;
       } catch (Exception e) {
         abort(e);
@@ -615,10 +656,8 @@ public class URLQueue {
       } finally {
         commit(my_txn);
 
-        if (removed && webUrl.getSeedDocid() >= 0)
-          seedDecrease(webUrl.getSeedDocid());
-        else
-          throw new RuntimeException("URL " + webUrl.getURL() + " was not present in list of processed pages. " + (removed ? "true" : "false") + " seeddocid: " + webUrl.getSeedDocid());
+        if (!removed)
+          throw new RuntimeException("URL " + webUrl + " was not present in database");
       }
     }
   }
