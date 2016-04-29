@@ -106,6 +106,8 @@ public class Util {
    * @return the type of the document
    */
   public static ContentType getContentType(String contentType, byte[] content) {
+   
+    
     // First check if contentType is text/plain to filter out the robots.txt
     if (contentType.contains("text/plain") && contentType!=null)
       return ContentType.TEXT;
@@ -168,7 +170,18 @@ public class Util {
    */
 
   public static String checkByteOrderMarker(byte[] content) {
-    // Parse the integer to the hex string
+    
+    
+    //First check with the universalchardet api if there is an enconding
+    org.mozilla.universalchardet.UniversalDetector detector = new org.mozilla.universalchardet.UniversalDetector(null);
+    detector.handleData(content, 0, content.length);
+    detector.dataEnd();
+    String encoding = detector.getDetectedCharset();
+    if (encoding != null) {
+      return encoding;
+      // If there is no enconding you need to find it manually
+    } else {
+   // Parse the integer to the hex string
     // Check for the UTF-32. UTF-32 is either 0 0 FE FF/ 0 0 FF FE
     if (content[0] == 0 && content[1] == 0) {
       if (((content[2] & 0xFF) == 0xFF && (content[3] & 0xFE) == 0xFE)
@@ -187,6 +200,7 @@ public class Util {
         return "UTF-32";
       }
       return "UTF-16";
+      }
     }
     return "UTF-8";
   }
