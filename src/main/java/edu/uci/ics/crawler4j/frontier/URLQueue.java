@@ -75,6 +75,14 @@ public class URLQueue {
     private TransactionAbort(Throwable e) { super(e); }
     private TransactionAbort(String msg, Throwable e) {super(msg, e); }
   }
+  
+  public abstract static class DBTransaction {
+    public abstract void run() throws TransactionAbort;
+  }
+  
+  public abstract static class DBVisitor {
+    public abstract IterateAction visit(WebURL arg) throws TransactionAbort;
+  }
 
   /**
    * Create the URLQueue, backed by a Berkeley database
@@ -111,16 +119,16 @@ public class URLQueue {
           result = cursor.getNext(key, value, null);
         }
       } catch (Exception e) {
-        abort(e);
         my_txn = null;
+        abort(e);
       } finally {
         commit(my_txn);
       }
     } else {
       try {
-        iterate(new Processor<WebURL, IterateAction>() {
+        iterate(new DBVisitor() {
           @Override
-          public IterateAction apply(WebURL arg) {
+          public IterateAction visit(WebURL arg) {
             return IterateAction.REMOVE;
           }
         });
@@ -140,7 +148,10 @@ public class URLQueue {
     if (txn != null)
       return null;
     
-    return txn = env.beginTransaction(null, null);
+    log.trace("Beginning new transaction");
+    txn = env.beginTransaction(null, null);
+    log.trace("Began new transaction", txn);
+    return txn;
   }
 
   /**
@@ -154,7 +165,9 @@ public class URLQueue {
       if (txn != this.txn)
         throw new RuntimeException("Transaction is commited in incorrect order - " + this.txn + " is open, so " + txn + " cannot be commited.");
       
+      log.trace("Committing transaction ", txn);
       txn.commit();
+      log.trace("Committed transaction ", txn);
       this.txn = null;
     }
   }
@@ -213,8 +226,8 @@ public class URLQueue {
           result = cursor.getNext(key, value, null);
         }
       } catch (DatabaseException e) {
-        abort(e);
         my_txn = null;
+        abort(e);
       } finally {
         commit(my_txn);
       }
@@ -251,8 +264,8 @@ public class URLQueue {
           try {
             seedCountDB.delete(txn, key);
           } catch (DatabaseException e) {
-            abort(e);
             my_txn = null;
+            abort(e);
           } finally {
             commit(my_txn);
           }
@@ -269,8 +282,8 @@ public class URLQueue {
           DatabaseEntry val = new DatabaseEntry(Util.int2ByteArray(value));
           seedCountDB.put(txn, key, val);
         } catch (DatabaseException e) {
-          abort(e);
           my_txn = null;
+          abort(e);
         } finally {
           commit(my_txn);
         }
@@ -359,8 +372,8 @@ public class URLQueue {
           added = true;
         }
       } catch (DatabaseException | TransactionAbort e) {
-        abort(e);
         my_txn = null;
+        abort(e);
       } finally {
         commit(my_txn);
       }
@@ -396,8 +409,8 @@ public class URLQueue {
           }
         }
       } catch (DatabaseException | TransactionAbort e) {
-        abort(e);
         my_txn = null;
+        abort(e);
       } finally {
         commit(my_txn);
       }
@@ -430,7 +443,7 @@ public class URLQueue {
    * @return A WebURL for which REMOVE_AND_RETURN or RETURN was returned, or null if that did not happen.
    * @throws TransactionAbort Thrown when iteration was aborted and the transaction was rolled back.
    */
-  public WebURL iterate(Processor<WebURL, IterateAction> callback) throws TransactionAbort {
+  public WebURL iterate(DBVisitor callback) throws TransactionAbort {
     synchronized (mutex) {
       DatabaseEntry key = new DatabaseEntry();
       DatabaseEntry value = new DatabaseEntry();
@@ -440,7 +453,7 @@ public class URLQueue {
         OperationStatus result = cursor.getFirst(key, value,  null);
         while (result == OperationStatus.SUCCESS) {
           url = webURLBinding.entryToObject(value);
-          IterateAction action = callback.apply(url);
+          IterateAction action = callback.visit(url);
           
           if (action == IterateAction.REMOVE || action == IterateAction.REMOVE_AND_RETURN)
           {
@@ -457,8 +470,9 @@ public class URLQueue {
           result = cursor.getNext(key, value, null);
         }
       } catch (Exception e) {
-        abort(e);
+        log.error("Exception occured while iterating over database", e);
         my_txn = null;
+        abort(e);
       } finally {
         commit(my_txn);
       }
@@ -475,8 +489,8 @@ public class URLQueue {
   public List<WebURL> getDump() {
     final List<WebURL> list = new ArrayList<WebURL>();
     try {
-      iterate(new Processor<WebURL, IterateAction>() {
-        public IterateAction apply(WebURL url) {
+      iterate(new DBVisitor() {
+        public IterateAction visit(WebURL url) throws TransactionAbort {
           list.add(url);
           return IterateAction.CONTINUE;
         }
@@ -496,10 +510,12 @@ public class URLQueue {
    * @see #update(WebURL)
    */
   public void update(Collection<WebURL> urls) throws TransactionAbort {
+    log.trace("Updating set of {} urls", urls.size());
     Transaction my_txn = beginTransaction();
     
     try (Cursor cursor = openCursor(txn)) {
       for (WebURL url : urls) {
+        log.trace("Multi-update: updating {}", url);
         DatabaseEntry key = getDatabaseEntryKey(url);
         DatabaseEntry value = new DatabaseEntry();
         DatabaseEntry new_value = new DatabaseEntry();
@@ -513,8 +529,8 @@ public class URLQueue {
         cursor.putCurrent(new_value);
       }
     } catch (DatabaseException | TransactionAbort e) {
+      my_txn = null; // Make sure the transaction is not committed
       abort(e);
-      my_txn = null;
     } finally {
       commit(my_txn);
     }
@@ -530,6 +546,7 @@ public class URLQueue {
    * @throws DatabaseException When something went wrong in the database
    */
   public boolean update(WebURL url) throws TransactionAbort {
+    log.trace("Updating {}", url);
     Transaction my_txn = beginTransaction();
     DatabaseEntry key = getDatabaseEntryKey(url);
     DatabaseEntry value = new DatabaseEntry();
@@ -544,8 +561,8 @@ public class URLQueue {
       }
       log.error("Could not find URL to update using key: {}", url.getKey());
     } catch (DatabaseException e) {
-      abort(e);
       my_txn = null;
+      abort(e);
     } finally {
       commit(my_txn);
     }
@@ -572,8 +589,8 @@ public class URLQueue {
         return url;
       }
     } catch (DatabaseException e) {
-      abort(e);
       my_txn = null;
+      abort(e);
     } finally {
       commit(my_txn);
     }
@@ -592,9 +609,9 @@ public class URLQueue {
     final Util.Reference<Integer> num_removed = new Util.Reference<Integer>(0);
     Transaction my_txn = beginTransaction();
     try {
-      iterate(new Processor<WebURL, IterateAction>() {
+      iterate(new DBVisitor() {
         @Override
-        public IterateAction apply(WebURL url) {
+        public IterateAction visit(WebURL url) {
           if (url.getSeedDocid() == seed_doc_id) {
             num_removed.assign(num_removed.get() + 1);
             return IterateAction.REMOVE;
@@ -603,8 +620,8 @@ public class URLQueue {
         }
       });
     } catch (TransactionAbort e) {
-      abort(e);
       my_txn = null;
+      abort(e);
     } finally {
       commit(my_txn);
     }
@@ -612,14 +629,14 @@ public class URLQueue {
     return num_removed.get();
   }
   
-  public void transaction(Runnable r) throws TransactionAbort {
+  public void transaction(DBTransaction r) throws TransactionAbort {
     Transaction my_txn = beginTransaction();
     try {
       r.run();
     } catch (Exception e) {
       log.error("Reverting transaction after exception", e);
-      abort(e);
       my_txn = null;
+      abort(e);
     } finally {
       commit(my_txn);
     }
@@ -651,8 +668,8 @@ public class URLQueue {
           seedDecrease(webUrl.getSeedDocid());
         removed = true;
       } catch (Exception e) {
-        abort(e);
         my_txn = null;
+        abort(e);
       } finally {
         commit(my_txn);
 

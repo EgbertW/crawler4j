@@ -21,6 +21,8 @@ import edu.uci.ics.crawler4j.crawler.CrawlConfig;
 import edu.uci.ics.crawler4j.crawler.WebCrawler;
 import edu.uci.ics.crawler4j.crawler.exceptions.QueueException;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
+import edu.uci.ics.crawler4j.frontier.URLQueue.DBTransaction;
+import edu.uci.ics.crawler4j.frontier.URLQueue.DBVisitor;
 import edu.uci.ics.crawler4j.frontier.URLQueue.TransactionAbort;
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.IterateAction;
@@ -130,9 +132,9 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       // All URLs should be in order of their keys, so we can just always
       // do a tail insert
       try {
-        crawl_queue_db.iterate(new Processor<WebURL, IterateAction>() {
+        crawl_queue_db.iterate(new DBVisitor() {
           @Override
-          public IterateAction apply(WebURL url) {
+          public IterateAction visit(WebURL url) throws TransactionAbort {
             String host = url.getURI().getHost();
             HostQueue hq = host_queue.get(host);
           
@@ -169,7 +171,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
   
   @Override
   public boolean enqueue(WebURL url) {
-    boolean debug = logger.isDebugEnabled();
+    boolean debug = logger.isTraceEnabled();
     URI uri = url.getURI();
     String host = uri.getHost();
     
@@ -213,27 +215,23 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       
       // Update previous tail
       try {
-        crawl_queue_db.transaction(new Runnable() {
+        crawl_queue_db.transaction(new DBTransaction() {
           @Override
-          public void run() {
-            try {
-              cur_tail.setNext(to_insert);
-              success.val &= crawl_queue_db.update(cur_tail);
-              if (!success.val) {
-                cur_tail.setNext((byte []) null);
-                throw new RuntimeException("Could not update tail of host-queue for host " + hq_ref.host);
-              }
+          public void run() throws TransactionAbort {
+            cur_tail.setNext(to_insert);
+            success.val &= crawl_queue_db.update(cur_tail);
+            if (!success.val) {
+              cur_tail.setNext((byte []) null);
+              throw new RuntimeException("Could not update tail of host-queue for host " + hq_ref.host);
+            }
 
-              to_insert.setNext((byte []) null);
-              to_insert.setPrevious(cur_tail);
-              success.val &= crawl_queue_db.put(to_insert);
-              if (!success.val) {
-                cur_tail.setNext((byte []) null);
-                to_insert.setPrevious((byte []) null);
-                throw new RuntimeException("Could not insert " + to_insert);
-              }
-            } catch (TransactionAbort e) {
-              throw new RuntimeException("Failed to perform tail insert for " + to_insert);
+            to_insert.setNext((byte []) null);
+            to_insert.setPrevious(cur_tail);
+            success.val &= crawl_queue_db.put(to_insert);
+            if (!success.val) {
+              cur_tail.setNext((byte []) null);
+              to_insert.setPrevious((byte []) null);
+              throw new RuntimeException("Could not insert " + to_insert);
             }
           }
         });
@@ -258,27 +256,23 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       
       // Update previous head
       try {
-        crawl_queue_db.transaction(new Runnable() {
+        crawl_queue_db.transaction(new DBTransaction() {
           @Override
-          public void run() {
-            try {
-              cur_head.setPrevious(to_insert);
-              success.val &= crawl_queue_db.update(cur_head);
-              if (!success.val) {
-                cur_head.setPrevious((byte []) null);
-                throw new RuntimeException("Could not update head of host-queue for host " + hq_ref.host);
-              }
+          public void run() throws TransactionAbort {
+            cur_head.setPrevious(to_insert);
+            success.val &= crawl_queue_db.update(cur_head);
+            if (!success.val) {
+              cur_head.setPrevious((byte []) null);
+              throw new RuntimeException("Could not update head of host-queue for host " + hq_ref.host);
+            }
 
-              to_insert.setPrevious((byte []) null);
-              to_insert.setNext(cur_head);
-              success.val &= crawl_queue_db.put(to_insert);
-              if (!success.val) {
-                cur_head.setPrevious((byte []) null);
-                to_insert.setNext((byte []) null);
-                throw new RuntimeException("Could not insert " + to_insert);
-              }
-            } catch (TransactionAbort e) {
-              throw new RuntimeException("Could not perform head-insert for " + to_insert);
+            to_insert.setPrevious((byte []) null);
+            to_insert.setNext(cur_head);
+            success.val &= crawl_queue_db.put(to_insert);
+            if (!success.val) {
+              cur_head.setPrevious((byte []) null);
+              to_insert.setNext((byte []) null);
+              throw new RuntimeException("Could not insert " + to_insert);
             }
           }
         });
@@ -336,40 +330,36 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     final HostQueue hq_ref = hq;
     
     try {
-      crawl_queue_db.transaction(new Runnable() { 
+      crawl_queue_db.transaction(new DBTransaction() { 
         @Override
-        public void run() {
+        public void run() throws TransactionAbort {
           // Update the URL that preceeds the to-insert URL
           tr_prev.setNext(tr_ins);
-          try {
-            boolean result = crawl_queue_db.update(tr_prev);
-            if (result == false) {
-              tr_prev.setNext(tr_next);
-              throw new RuntimeException("Could not update 'prev-URL' in crawl_queue: " + tr_prev);
-            }
-
-
-            // Update the URL that follows the to-insert URL
-            tr_next.setPrevious(tr_ins);
-            result = crawl_queue_db.update(tr_next);
-            if (result == false) {
-              tr_prev.setNext(tr_next);
-              tr_next.setPrevious(tr_prev);
-              throw new RuntimeException("Could not update 'next-URL' in crawl_queue: " + tr_next);
-            }
-
-            // Insert the new URL
-            tr_ins.setPrevious(tr_prev);
-            tr_ins.setNext(tr_next);
-            result = crawl_queue_db.put(tr_ins);
-            if (result == false)
-              throw new RuntimeException("Could not insert new URL into crawl_queue: " + tr_ins);
-
-            if (debug)
-              logger.trace("Host {} - inserting new {} between {} and {}", hq_ref.host, tr_ins, tr_prev, tr_next);
-          } catch (TransactionAbort e) {
-            throw new RuntimeException(e);
+          boolean result = crawl_queue_db.update(tr_prev);
+          if (result == false) {
+            tr_prev.setNext(tr_next);
+            throw new RuntimeException("Could not update 'prev-URL' in crawl_queue: " + tr_prev);
           }
+
+
+          // Update the URL that follows the to-insert URL
+          tr_next.setPrevious(tr_ins);
+          result = crawl_queue_db.update(tr_next);
+          if (result == false) {
+            tr_prev.setNext(tr_next);
+            tr_next.setPrevious(tr_prev);
+            throw new RuntimeException("Could not update 'next-URL' in crawl_queue: " + tr_next);
+          }
+
+          // Insert the new URL
+          tr_ins.setPrevious(tr_prev);
+          tr_ins.setNext(tr_next);
+          result = crawl_queue_db.put(tr_ins);
+          if (result == false)
+            throw new RuntimeException("Could not insert new URL into crawl_queue: " + tr_ins);
+
+          if (debug)
+            logger.trace("Host {} - inserting new {} between {} and {}", hq_ref.host, tr_ins, tr_prev, tr_next);
         }
       });
     } catch (TransactionAbort e) {
@@ -634,13 +624,14 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
 
   @Override
   public void removeOffspring(long seed_doc_id) {
+    logger.trace("Removing all offspring for {}", seed_doc_id);
     final Util.Reference<Integer> num_removed = new Util.Reference<Integer>(0);
     try {
-      crawl_queue_db.iterate(new Processor<WebURL, IterateAction>() {
+      crawl_queue_db.iterate(new DBVisitor() {
         @Override
-        public IterateAction apply(WebURL url) {
+        public IterateAction visit(WebURL url) throws TransactionAbort {
           if (url.getSeedDocid() == seed_doc_id) {
-            logger.trace("Found match for {}: {}", seed_doc_id, url);
+            logger.trace("Found match for seed_doc_id {}: {}", seed_doc_id, url);
             ++num_removed.val;
 
             String host = url.getURI().getHost();
@@ -654,11 +645,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
               while (cur.getPrevious() != null) {
                 ++rc;
                 WebURL prev = null;
-                try {
-                  prev = crawl_queue_db.get(cur.getPrevious());
-                } catch (TransactionAbort e) {
-                  throw new RuntimeException(e);
-                }
+                prev = crawl_queue_db.get(cur.getPrevious());
                 
                 if (prev != null) {
                   logger.error("{} step(s) backward: {} (docid: {}, seed: {}, parent: {}) - prev: {} next: {}", rc, prev.getURL(), prev.getDocid(), prev.getSeedDocid(), prev.getParentDocid(), prev.getPrevious(), prev.getNext());
@@ -675,11 +662,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
               while (cur.getNext() != null) {
                 ++rc;
                 WebURL next = null;
-                try {
-                  next = crawl_queue_db.get(cur.getNext());
-                } catch (TransactionAbort e) {
-                  throw new RuntimeException(e);
-                }
+                next = crawl_queue_db.get(cur.getNext());
                 
                 if (next != null) {
                   logger.error("{} step(s) forward: {} (docid: {}, seed: {}, parent: {}) - prev: {} next: {}", rc, next.getURL(), next.getDocid(), next.getSeedDocid(), next.getParentDocid(), next.getPrevious(), next.getNext());
@@ -694,14 +677,8 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
               throw new RuntimeException("Element in URL queue is not in host_queue - docid: " + url.getDocid() + " host: " + host);
             }
 
-            WebURL prev;
-            WebURL next;
-            try {
-              prev = crawl_queue_db.get(url.getPrevious());
-              next = crawl_queue_db.get(url.getNext());
-            } catch (TransactionAbort e) {
-              throw new RuntimeException(e);
-            }
+            WebURL prev = crawl_queue_db.get(url.getPrevious());
+            WebURL next = crawl_queue_db.get(url.getNext());
 
             if (prev != null && prev.getDocid() == hq.head.getDocid()) {
               prev = hq.head;
@@ -716,12 +693,8 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
             if (prev != null) {
               prev.setNext(next);
               logger.trace("Updating {} to preceed {}", prev, next);
-              try {
-                if (!crawl_queue_db.update(prev))
-                  throw new RuntimeException("Failed to update " + prev);
-              } catch (TransactionAbort e) {
-                throw new RuntimeException(e);
-              }
+              if (!crawl_queue_db.update(prev))
+                throw new RuntimeException("Failed to update " + prev);
             }
 
             if (next != null) {
@@ -881,9 +854,9 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
 
       final Util.Reference<Integer> url_counter2 = new Util.Reference<Integer>(0);
       try {
-        crawl_queue_db.iterate(new Processor<WebURL, IterateAction>() {
+        crawl_queue_db.iterate(new DBVisitor() {
           @Override
-          public IterateAction apply(WebURL url) {
+          public IterateAction visit(WebURL url) throws TransactionAbort {
             ++url_counter2.val;
             String host = url.getURI().getHost();
             HostQueue hq = host_queue.get(host);
