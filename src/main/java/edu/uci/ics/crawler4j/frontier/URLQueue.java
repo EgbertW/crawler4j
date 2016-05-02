@@ -150,7 +150,7 @@ public class URLQueue {
     
     log.trace("Beginning new transaction");
     txn = env.beginTransaction(null, null);
-    log.trace("Began new transaction", txn);
+    log.trace("Began new transaction {}", txn);
     return txn;
   }
 
@@ -165,9 +165,9 @@ public class URLQueue {
       if (txn != this.txn)
         throw new RuntimeException("Transaction is commited in incorrect order - " + this.txn + " is open, so " + txn + " cannot be commited.");
       
-      log.trace("Committing transaction ", txn);
+      log.trace("Committing transaction {}", txn);
       txn.commit();
-      log.trace("Committed transaction ", txn);
+      log.trace("Committed transaction {}", txn);
       this.txn = null;
     }
   }
@@ -181,7 +181,7 @@ public class URLQueue {
    */
   protected void abort(Throwable cause) throws TransactionAbort {
     if (txn != null) {
-      log.error("Aborting transaction: " + txn);
+      log.error("Aborting transaction: {}", txn);
       txn.abort();
       txn = null;
     }
