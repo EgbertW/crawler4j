@@ -393,6 +393,9 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       Set<WebURL> host_urls = e.getValue();
       HostQueue hq = host_queue.get(host);
       
+      if (debug)
+        logger.trace("Inserting {} URLs for host {}", host_urls.size(), host);
+      
       if (hq == null) {
         hq = new HostQueue(host);
         hq.head = hq.tail = null;
@@ -478,6 +481,9 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
             urls_to_update.add(prev);
           if (!urls_to_insert.contains(cursor))
             urls_to_update.add(cursor);
+          
+          if (debug)
+            logger.trace("Multi-enqueue: inserting into queue for host {}: {} between {} and {}", host, to_insert, prev, cursor);
         }
         urls_to_insert.add(to_insert);
         new_iter.remove();
