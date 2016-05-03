@@ -121,4 +121,49 @@ public class Util {
     return typeStr.startsWith("text/plain");
   }
 
+  /**
+   * Sleep for a minimum number of milliseconds, ignoring
+   * InterruptedException.
+   * 
+   * @param ms The minimum number of milliseconds to sleep
+   */
+  public static void sleep(long ms) {
+    if (ms <= 0)
+      return;
+    
+    sleepUntil(System.currentTimeMillis() + ms);
+  }
+  
+  /**
+   * Sleep at least until a specific target time, ignoring InterruptedException
+   * 
+   * @param target The time in milliseconds specifying the minimum time that 
+   *               this method will return.
+   */
+  public static void sleepUntil(long target) {
+    long remain;
+    while ((remain = target - System.currentTimeMillis()) > 0) {
+      try {
+        Thread.sleep(remain);
+      } catch (InterruptedException e) {}
+    }
+  }
+  
+  /**
+   * Sleep at least until a specific target time, ignoring InterruptedException
+   * 
+   * @param o The object on which to wait for a notification
+   * @param max The maximum time to wait on the object in milliseconds
+   * @return The actual amount of milliseconds actually spent waiting
+   */
+  public static long wait(Object o, long max) {
+    synchronized (o) {
+      long start = System.currentTimeMillis();
+      try {
+        o.wait(max);
+      } catch (InterruptedException e) {}
+      
+      return System.currentTimeMillis() - start; 
+    }
+  }
 }

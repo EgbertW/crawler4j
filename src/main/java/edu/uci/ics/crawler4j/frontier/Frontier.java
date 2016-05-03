@@ -40,6 +40,7 @@ import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.IterateAction;
 import edu.uci.ics.crawler4j.util.Processor;
+import edu.uci.ics.crawler4j.util.Util;
 
 /**
  * @author Yasser Ganjisaffar
@@ -265,11 +266,15 @@ public class Frontier extends Configurable {
       }
       
       if (url == null) {
-        synchronized (waitingList) {
-          try {
-            waitingList.wait(config.getPolitenessDelay());
-          } catch (InterruptedException e) {} // Don't care
+        if (queue.getQueueSize() > 0) {
+          // Track politeness wait
+          pageFetcher.doPolitenessWait(waitingList, config.getPolitenessDelay());
+        } else {
+          // Just wait for a while to see if more URLs come in, but don't
+          // track as an empty queue is not really 'politeness delay'
+          Util.wait(waitingList, config.getPolitenessDelay());
         }
+        
         continue;
       }
       

@@ -78,6 +78,7 @@ import edu.uci.ics.crawler4j.robotstxt.HostDirectives;
 import edu.uci.ics.crawler4j.robotstxt.RobotstxtServer;
 import edu.uci.ics.crawler4j.url.URLCanonicalizer;
 import edu.uci.ics.crawler4j.url.WebURL;
+import edu.uci.ics.crawler4j.util.Util;
 
 /**
  * @author Yasser Ganjisaffar
@@ -267,28 +268,53 @@ public class PageFetcher extends Configurable {
       host.penalty = Math.max(0, host.penalty - host.delay);
     }
      
-    long delay;
-    synchronized (this)
-    {
-      ++delay_counter;
-      
-      delay = target - System.currentTimeMillis();
-      if (delay < 0)
-          delay = 0;
-      delay_total += delay;
-      double avg = Math.round(delay_total / delay_counter * 1000) / 1000.0;
-      if (delay_last_time < System.currentTimeMillis() - 5000) {
-        logger.info("Average politeness sleep: {} (averaged over {} units)", avg, delay_counter);
-        delay_last_time = System.currentTimeMillis();
-      }
-    }
+    doPolitenessSleep(target - System.currentTimeMillis());
+  }
+
+  /**
+   * Perform and track a delay spent waiting before a URL can politely
+   * be crawled.
+   * 
+   * @param ms The amount of milliseconds to sleep in this instance
+   */
+  public void doPolitenessSleep(long ms) {
+    Util.sleep(ms);
     
-    while ((delay = target - System.currentTimeMillis()) > 0)
-    {
-      try {
-        Thread.sleep(delay);
-      } catch (InterruptedException e)
-      {}
+    synchronized (this) {
+      ++delay_counter;
+      if (ms > 0)
+        delay_total += ms;
+      politenessLog();
+    }
+  }
+  
+  /**
+   * Perform and track a delay spent waiting before a URL can politely
+   * be crawled.
+   * 
+   * @param o The object to wait on
+   * @param ms The amount of milliseconds to sleep in this instance
+   */
+  public void doPolitenessWait(Object o, long ms) {
+    long waited = Util.wait(o, ms);
+    
+    synchronized (this) {
+      ++delay_counter;
+      if (waited > 0)
+        delay_total += waited;
+      
+      politenessLog();
+    }
+  }
+  
+  /**
+   * Print some info about politeness delay every 5 seconds.
+   */
+  private void politenessLog() {
+    if (delay_last_time < System.currentTimeMillis() - 5000) {
+      double avg = Math.round(delay_total / delay_counter * 1000) / 1000.0;
+      logger.info("Politeness sleep: number: {} total duration: {} average per call: {}", delay_counter, delay_total, avg);
+      delay_last_time = System.currentTimeMillis();
     }
   }
   
