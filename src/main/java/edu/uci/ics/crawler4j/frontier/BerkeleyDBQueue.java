@@ -378,15 +378,17 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     
     HashMap<String, Set<WebURL>> new_urls = new HashMap<String, Set<WebURL>>();
     
+    logger.debug("Multi-enqueue: inserting {} URLs into crawl queue", urls.size());
+    
     // Sort the URLs into their hosts, and for each host, sort on priority
     for (WebURL url : urls){
       String host = url.getURI().getHost();
       if (!new_urls.containsKey(host))
         new_urls.put(host, new TreeSet<WebURL>());
       new_urls.get(host).add(url);
+      if (debug)
+        logger.trace("Multi-enqueue: sorting {} into list for host {} - queue size: {}", url, host, new_urls.get(host).size());
     }
-    
-    logger.debug("Multi-enqueue: inserting {} URLs into crawl queue", urls.size());
     
     for (Map.Entry<String, Set<WebURL>> e : new_urls.entrySet()) {
       String host = e.getKey();
@@ -415,6 +417,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       int comparison;
       while (new_iter.hasNext()) {
         WebURL to_insert = new_iter.next();
+        logger.trace("Multi-enqueue: processing {} for host {}", to_insert, host);
         
         comparison = -1;
         // Advance to the point where to where the new URL should be inserted before it
@@ -879,7 +882,48 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       
       if (url_counter != url_counter2.val) {
         logger.error("Traversing HostQueue results in {} URLs, traversing crawl_queue_db results in {} URLs", url_counter, url_counter2.val);
-        return "*";
+        final Reference<String> bad_host = new Reference<String>("*");
+        try {
+          crawl_queue_db.iterate(new DBVisitor() {
+            @Override
+            public IterateAction visit(WebURL url) throws TransactionAbort {
+              while (true) {
+                String host = url.getURI().getHost();
+                HostQueue hq = host_queue.get(host);
+                if (hq == null) {
+                  logger.error("{} exists in crawl_queue_db but does not have a HostQueue entry", url);
+                  continue;
+                }
+                
+                byte prev_key[] = url.getPrevious();
+                WebURL head = url;
+                while (head.getPrevious() != null) {
+                  prev_key = head.getPrevious();
+                  head = crawl_queue_db.get(prev_key);
+                  if (head == null)
+                    break;
+                }
+                 
+                // Prev should now be head - if it's null, something went wrong
+                if (head == null) {
+                  logger.error("Queue for host {} is invalid - tracing back to head fails to resolve while looking for key {}", url, prev_key);
+                  bad_host.val = host;
+                  return IterateAction.RETURN;
+                }
+                
+                // Check if head == hq.head
+                if (head.getDocid() != hq.head.getDocid()) {
+                  logger.error("Queue for host {} is invalid - tracing back to head starting from {} resulted in {} while hq.head = {}", host, url, head, hq.head);
+                  bad_host.val = host;
+                  return IterateAction.RETURN;
+                }
+              }
+            }
+          });
+        } catch (TransactionAbort e) {
+          logger.error("Failed to validate URL queue due to database error", e);
+        }
+        return bad_host.val;
       }
     } catch (RuntimeException e) {
       logger.error("Failed to validate HostQueue for host: {} - Error: {}", hq.host, e.getMessage());
@@ -911,6 +955,8 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     HostQueue hq = host_queue.get(host);
     if (hq != null)
       showHostQueue(hq);
+    else
+      logger.error("-- No Host Queue for host {}", host);;
   }
   /**
    * List a queue to the logger, useful for debugging issues.
