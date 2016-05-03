@@ -8,3 +8,5 @@ javadocs/*
 .project
 logs/
 /bin/
+/build/
+/.gradle/
