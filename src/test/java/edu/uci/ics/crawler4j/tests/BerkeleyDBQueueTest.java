@@ -341,7 +341,10 @@ public class BerkeleyDBQueueTest {
    */
   @Test
   public void testRandomHostQueueUtilization() throws URISyntaxException, QueueException {
-    if (true)
+    // Prevent warnings, but disable test while not bug-hunting as its
+    // quite time consuming
+    int a = 0;
+    if (a < 1)
       return;
     
     Random gen = new Random(1234);
@@ -471,7 +474,10 @@ public class BerkeleyDBQueueTest {
    */
   @Test
   public void testMPRandomHostQueueUtilization() throws URISyntaxException, QueueException {
-    if (true)
+    // Prevent warnings, but disable test while not bug-hunting as its
+    // quite time consuming
+    int a = 0;
+    if (a < 1)
       return;
     
     int nthreads = 8;

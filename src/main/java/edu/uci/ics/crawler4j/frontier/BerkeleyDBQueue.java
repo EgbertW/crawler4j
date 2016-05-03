@@ -26,7 +26,6 @@ import edu.uci.ics.crawler4j.frontier.URLQueue.DBVisitor;
 import edu.uci.ics.crawler4j.frontier.URLQueue.TransactionAbort;
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.IterateAction;
-import edu.uci.ics.crawler4j.util.Processor;
 import edu.uci.ics.crawler4j.util.Util;
 import edu.uci.ics.crawler4j.util.Util.Reference;
 
