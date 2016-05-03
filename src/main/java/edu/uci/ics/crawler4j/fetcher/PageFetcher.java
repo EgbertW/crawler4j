@@ -312,8 +312,27 @@ public class PageFetcher extends Configurable {
    */
   private void politenessLog() {
     if (delay_last_time < System.currentTimeMillis() - 5000) {
-      double avg = Math.round(delay_total / delay_counter * 1000) / 1000.0;
-      logger.info("Politeness sleep: number: {} total duration: {} average per call: {}", delay_counter, delay_total, avg);
+      long avg_msec = Math.round(delay_total / delay_counter);
+      
+      // Format time
+      long tot_sec = Math.round(delay_total / 1000.0);
+      long tot_min = tot_sec / 60;
+      tot_sec = tot_sec % 60;
+      long tot_hr = tot_min / 60;
+      tot_min = tot_min % 60;
+      StringBuilder b = new StringBuilder();
+      if (tot_hr > 0) {
+        b.append(tot_hr);
+        b.append(":");
+      }
+      
+      b.append(tot_min > 9 ? tot_min : "0" + tot_min);
+      b.append(":");
+      b.append(tot_sec > 9 ? tot_sec : "0" + tot_sec);
+      String duration = b.toString();
+      
+      double tot_k = Math.round(delay_counter / 100.0) / 10.0;
+      logger.info("Politeness sleep: counter: {}k total sleep duration: {} average per call: {}ms", tot_k, duration, avg_msec);
       delay_last_time = System.currentTimeMillis();
     }
   }
