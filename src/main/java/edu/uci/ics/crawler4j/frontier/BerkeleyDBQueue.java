@@ -381,7 +381,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     logger.debug("Multi-enqueue: inserting {} URLs into crawl queue", urls.size());
     
     // Sort the URLs into their hosts, and for each host, sort on priority
-    for (WebURL url : urls){
+    for (WebURL url : urls) {
       String host = url.getURI().getHost();
       if (!new_urls.containsKey(host))
         new_urls.put(host, new TreeSet<WebURL>());
@@ -427,9 +427,9 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
           
           prev = cursor;
           byte [] next_key = cursor.getNext();
-          if (hq.tail != null && next_key != null && hq.tail.compareKey(next_key) == 0)
+          if (hq.tail != null && next_key != null && hq.tail.compareKey(next_key) == 0) {
             cursor = hq.tail;
-          else {
+          } else {
             try {
               cursor = crawl_queue_db.get(next_key);
             } catch (TransactionAbort ex) {
@@ -450,7 +450,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
         if (hq.head == null) {
           to_insert.setPrevious((byte []) null);
           to_insert.setNext((byte []) null);
-          hq.head = hq.tail = prev = to_insert;
+          hq.head = hq.tail = to_insert;
           if (debug)
             logger.trace("Multi-enqueue: adding first URL to queue for host {}: {}", host, to_insert);
         } else if (cursor == null) { // Tail insert -> prev == hq.tail
@@ -488,6 +488,11 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
           if (debug)
             logger.trace("Multi-enqueue: inserting into queue for host {}: {} between {} and {}", host, to_insert, prev, cursor);
         }
+        
+        // Any following URLs will come after this URL
+        prev = to_insert;
+        
+        // Make sure to insert the new URL
         urls_to_insert.add(to_insert);
         new_iter.remove();
       }
