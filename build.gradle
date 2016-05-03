@@ -82,3 +82,10 @@ uploadArchives {
         }
     }
 }
+
+test {
+    testLogging {
+        showStandardStreams = true
+    }
+}
+

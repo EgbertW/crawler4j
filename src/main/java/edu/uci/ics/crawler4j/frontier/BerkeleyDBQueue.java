@@ -887,48 +887,39 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       
       if (url_counter != url_counter2.val) {
         logger.error("Traversing HostQueue results in {} URLs, traversing crawl_queue_db results in {} URLs", url_counter, url_counter2.val);
-        final Reference<String> bad_host = new Reference<String>("*");
+        WebURL bad_url = null;
         try {
-          crawl_queue_db.iterate(new DBVisitor() {
+          bad_url = crawl_queue_db.iterate(new DBVisitor() {
             @Override
             public IterateAction visit(WebURL url) throws TransactionAbort {
-              while (true) {
-                String host = url.getURI().getHost();
-                HostQueue hq = host_queue.get(host);
-                if (hq == null) {
-                  logger.error("{} exists in crawl_queue_db but does not have a HostQueue entry", url);
-                  continue;
-                }
-                
-                byte prev_key[] = url.getPrevious();
-                WebURL head = url;
-                while (head.getPrevious() != null) {
-                  prev_key = head.getPrevious();
-                  head = crawl_queue_db.get(prev_key);
-                  if (head == null)
-                    break;
-                }
-                 
-                // Prev should now be head - if it's null, something went wrong
-                if (head == null) {
-                  logger.error("Queue for host {} is invalid - tracing back to head fails to resolve while looking for key {}", url, prev_key);
-                  bad_host.val = host;
-                  return IterateAction.RETURN;
-                }
-                
-                // Check if head == hq.head
-                if (head.getDocid() != hq.head.getDocid()) {
-                  logger.error("Queue for host {} is invalid - tracing back to head starting from {} resulted in {} while hq.head = {}", host, url, head, hq.head);
-                  bad_host.val = host;
-                  return IterateAction.RETURN;
-                }
+              System.out.println("Visiting " + url);
+              String host = url.getURI().getHost();
+              HostQueue hq = host_queue.get(host);
+              if (hq == null) {
+                logger.error("{} exists in crawl_queue_db but does not have a HostQueue entry", url);
+                return IterateAction.RETURN;
               }
+
+              WebURL cursor = hq.head;
+              while (cursor != null) {
+                if (cursor.equals(url))
+                  return IterateAction.CONTINUE; // URL is reachable
+                
+                byte [] next_key = cursor.getNext();
+                cursor = crawl_queue_db.get(next_key);
+              }
+
+              // We reached the end of the queue, but did not encounter
+              // the visited URL, so it's unreachable.
+              return IterateAction.RETURN;
             }
           });
         } catch (TransactionAbort e) {
           logger.error("Failed to validate URL queue due to database error", e);
         }
-        return bad_host.val;
+        if (bad_url != null)
+          return bad_url.getURI().getHost();
+        return "*";
       }
     } catch (RuntimeException e) {
       logger.error("Failed to validate HostQueue for host: {} - Error: {}", hq.host, e.getMessage());
