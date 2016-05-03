@@ -37,7 +37,11 @@ public class Net {
     return extractedUrls;
   }
 
-  /** Singleton like one time call to initialize the Pattern */
+  /**
+   * Singleton like one time call to initialize the Pattern 
+   * 
+   * @return The initialized pattern
+   */
   private static Pattern initializePattern() {
     return Pattern.compile("\\b(((ht|f)tp(s?)\\:\\/\\/|~\\/|\\/)|www.)" +
                            "(\\w+:\\w+@)?(([-\\w]+\\.)+(com|org|net|gov" +

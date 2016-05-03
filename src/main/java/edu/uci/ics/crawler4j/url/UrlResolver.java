@@ -378,6 +378,10 @@ public final class UrlResolver {
 
   /**
    * "/.." at the beginning should be removed as browsers do (not in RFC)
+   * 
+   * @param path The path from which to remove leading /.. sequence.
+   * @return The string without a leading /.. if applicable, otherwise the
+   *         unmodified string.
    */
   private static String removeLeadingSlashPoints(String path) {
     while (path.startsWith("/..")) {

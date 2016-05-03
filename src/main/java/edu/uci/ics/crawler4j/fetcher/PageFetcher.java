@@ -335,6 +335,8 @@ public class PageFetcher extends Configurable {
    * BASIC authentication<br/>
    * Official Example: https://hc.apache.org/httpcomponents-client-ga/httpclient/examples/org/apache/http/examples
    * /client/ClientAuthentication.java
+   * 
+   * @param authInfo The authentication information for the basic login
    * */
   private void doBasicLogin(BasicAuthInfo authInfo) {
     logger.info("BASIC authentication for: " + authInfo.getLoginTarget());
@@ -347,6 +349,8 @@ public class PageFetcher extends Configurable {
 
   /**
    * Do NT auth for Microsoft AD sites.
+   * 
+   * @param authInfo The authentication informatoin for MS AD Authentication
    */
   private void doNtLogin(NtAuthInfo authInfo) {
     logger.info("NT authentication for: " + authInfo.getLoginTarget());
@@ -366,6 +370,8 @@ public class PageFetcher extends Configurable {
    * FORM authentication<br/>
    * Official Example:
    *  https://hc.apache.org/httpcomponents-client-ga/httpclient/examples/org/apache/http/examples/client/ClientFormLogin.java
+   *  
+   * @param authInfo The authentication information for form authentication
    */
   private void doFormLogin(FormAuthInfo authInfo) {
     logger.info("FORM authentication for: " + authInfo.getLoginTarget());

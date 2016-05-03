@@ -78,8 +78,11 @@ public class BinaryParseData implements ParseData {
   /**
    * Returns a transformer handler that serializes incoming SAX events to
    * XHTML or HTML (depending the given method) using the given output encoding.
-   *
+   * @param out The output stream to write to
+   * @param method The type of output to generate
    * @param encoding output encoding, or <code>null</code> for the platform default
+   * @return The Sax transformerhandler object
+   * @throws TransformerConfigurationException When an invalid method was specified
    */
   private static TransformerHandler getTransformerHandler(OutputStream out, String method, String encoding)
       throws TransformerConfigurationException {

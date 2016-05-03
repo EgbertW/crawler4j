@@ -128,8 +128,9 @@ public class URLCanonicalizer {
   /**
    * Takes a query string, separates the constituent name-value pairs, and
    * stores them in a SortedMap ordered by lexicographical order.
-   *
-   * @return Null if there is no query string.
+   * 
+   * @param queryString The query string to parse
+   * @return Null if there is no query string, otherwise the name-value pairs
    */
   private static SortedMap<String, String> createParameterMap(final String queryString) {
     if ((queryString == null) || queryString.isEmpty()) {

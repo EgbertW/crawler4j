@@ -33,7 +33,11 @@ public class UserAgentDirectives {
     /** The path to compare the path rules with */
     String path;
     
-    /** Initialize with the path */
+    /** 
+     * Initialize with the path 
+     * 
+     * @param path The path that needs to be evaluated
+     * */
     PathComparator(String path) {
       this.path = path;
     }

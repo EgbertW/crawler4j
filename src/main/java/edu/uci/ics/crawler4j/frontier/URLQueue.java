@@ -90,6 +90,8 @@ public class URLQueue {
    * @param env The BerkeleyDB environment
    * @param dbName The name of the BDB database
    * @param resumable Whether this database may be reused on a new run.
+   * 
+   * @throws TransactionAbort Whenever the current database could not be loaded
    */
   public URLQueue(Environment env, String dbName, boolean resumable) throws TransactionAbort {
     this.env = env;
@@ -249,6 +251,7 @@ public class URLQueue {
    * 
    * @param docid The seed docid for which to set the counter
    * @param value The new value for the counter
+   * @throws TransactionAbort When a database failure occured during the operation
    */
   private void setSeedCount(Long docid, Integer value) throws TransactionAbort {
     DatabaseEntry key = new DatabaseEntry(Util.long2ByteArray(docid));
@@ -291,6 +294,7 @@ public class URLQueue {
    * Increase the seed counter by 1
    * 
    * @param docid The seed docid for which to increment the counter
+   * @throws TransactionAbort When {@link #seedIncrease(Long, Integer)} throws it
    */
   public void seedIncrease(Long docid) throws TransactionAbort {
     seedIncrease(docid, 1);
@@ -301,6 +305,7 @@ public class URLQueue {
    * 
    * @param docid The seed docid for which to increase the counter
    * @param amount The amount by which to increase it
+   * @throws TransactionAbort When {@link #setSeedCount(Long, Integer)} throws it
    */
   public void seedIncrease(Long docid, Integer amount) throws TransactionAbort {
     synchronized (mutex) {
@@ -312,6 +317,7 @@ public class URLQueue {
    * Increase the seed counter by 1
    * 
    * @param docid The seed docid for which to decrement the counter
+   * @throws TransactionAbort When {@link #seedIncrease(Long, Integer)} throws it
    */
   public void seedDecrease(Long docid) throws TransactionAbort {
     seedIncrease(docid, -1);
@@ -322,6 +328,7 @@ public class URLQueue {
    * 
    * @param docid The seed doc id for which to decrease the counter
    * @param amount The amount by which to reduce it
+   * @throws TransactionAbort When {@link #seedIncrease(Long, Integer)} throws it
    */
   public void seedDecrease(Long docid, Integer amount) throws TransactionAbort {
     seedIncrease(docid, -amount);
@@ -539,7 +546,7 @@ public class URLQueue {
    * 
    * @param url The URL to update
    * @return True when the update succeeded, false otherwise
-   * @throws DatabaseException When something went wrong in the database
+   * @throws TransactionAbort When something went wrong in the database
    */
   public boolean update(WebURL url) throws TransactionAbort {
     log.trace("Updating {}", url);
@@ -600,6 +607,7 @@ public class URLQueue {
    * 
    * @param seed_doc_id The seed for which to remove the offspring
    * @return The number of elements removed
+   * @throws TransactionAbort Whenever the any error occurs in the database
    */
   public int removeOffspring(final long seed_doc_id) throws TransactionAbort {
     final Util.Reference<Integer> num_removed = new Util.Reference<Integer>(0);
