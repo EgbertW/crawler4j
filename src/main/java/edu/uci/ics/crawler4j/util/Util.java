@@ -50,24 +50,24 @@ public class Util {
   }
 
   public static byte[] long2ByteArray(long value) {
-    ByteBuffer bbuf = ByteBuffer.allocate(Long.BYTES);
+    ByteBuffer bbuf = ByteBuffer.allocate(8);
     bbuf.putLong(value);
     return bbuf.array();
   }
 
   public static byte[] int2ByteArray(int value) {
-    ByteBuffer bbuf = ByteBuffer.allocate(Integer.BYTES);
+    ByteBuffer bbuf = ByteBuffer.allocate(4);
     bbuf.putInt(value);
     return bbuf.array();
   }
 
   public static void putLongInByteArray(long value, byte[] buf, int offset) {
-    ByteBuffer buf2 = ByteBuffer.wrap(buf, offset, Long.BYTES);
+    ByteBuffer buf2 = ByteBuffer.wrap(buf, offset, 8);
     buf2.putLong(value);
   }
   
   public static void putIntInByteArray(int value, byte[] buf, int offset) {
-    ByteBuffer buf2 = ByteBuffer.wrap(buf, offset, Integer.BYTES);
+    ByteBuffer buf2 = ByteBuffer.wrap(buf, offset, 4);
     buf2.putInt(value);
   }
 
@@ -80,12 +80,12 @@ public class Util {
   }
 
   public static int extractIntFromByteArray(byte[] b, int offset) {
-    ByteBuffer bbuf = ByteBuffer.wrap(b, offset, Integer.BYTES);
+    ByteBuffer bbuf = ByteBuffer.wrap(b, offset, 4);
     return bbuf.getInt();
   }
   
   public static long extractLongFromByteArray(byte[] b, int offset) {
-    ByteBuffer bbuf = ByteBuffer.wrap(b, offset, Long.BYTES);
+    ByteBuffer bbuf = ByteBuffer.wrap(b, offset, 8);
     return bbuf.getLong();
   }
   
