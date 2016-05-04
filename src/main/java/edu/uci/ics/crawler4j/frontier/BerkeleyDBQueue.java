@@ -170,7 +170,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
   
   @Override
   public boolean enqueue(WebURL url) {
-    boolean debug = logger.isTraceEnabled();
+    final boolean debug = logger.isTraceEnabled();
     URI uri = url.getURI();
     String host = uri.getHost();
     

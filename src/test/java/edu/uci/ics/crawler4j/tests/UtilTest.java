@@ -58,7 +58,7 @@ public class UtilTest {
     checkLong(Long.MAX_VALUE >> 4);
     checkLong(Long.MAX_VALUE >> 6);
     
-    for (int shift = 0; shift <= Long.BYTES; ++shift) {
+    for (int shift = 0; shift <= 8; ++shift) {
       long l = 1 << shift;
       checkLong(l);
     }
@@ -74,7 +74,7 @@ public class UtilTest {
     checkInt(Integer.MAX_VALUE << 2);
     checkInt(Integer.MAX_VALUE >> 2);
     
-    for (int shift = 0; shift <= Integer.BYTES; ++shift) {
+    for (int shift = 0; shift <= 4; ++shift) {
       int i = 1 << shift;
       checkInt(i);
     }
