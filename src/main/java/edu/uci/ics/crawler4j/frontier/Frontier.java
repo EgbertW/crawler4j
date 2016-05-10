@@ -283,6 +283,13 @@ public class Frontier extends Configurable {
         }
         
         url = queue.getNextURL(crawler, pageFetcher);
+        
+        if (url != null && finished_seeds.contains(url.getSeedDocid())) {
+          // No need to hand out this URL again, it's already finished
+          logger.debug("Skipping {} as its seed is finished", url);
+          queue.setFinishedURL(crawler, url);
+          continue;
+        }
       }
       
       if (url == null) {
