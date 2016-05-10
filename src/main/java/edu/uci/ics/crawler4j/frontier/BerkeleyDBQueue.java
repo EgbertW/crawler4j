@@ -75,6 +75,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
   protected static class HostQueue {
     protected String host;
     protected long nextFetchTime;
+    protected Long lastAssigned = null;
     
     public WebURL head;
     public WebURL tail;
@@ -93,9 +94,21 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
    */
   protected class HostComparator implements Comparator<HostQueue> {
     HostComparator(Map<String, Long> nextFetchTimes) {
+      long long_nft = System.currentTimeMillis() + 900000;
+      long long_ago = System.currentTimeMillis() - 900000;
       for (Map.Entry<String, HostQueue> e : host_queue.entrySet()) {
         Long nft = nextFetchTimes.get(e.getKey());
         e.getValue().nextFetchTime = nft == null ? 0 : nft;
+        if (nft != null && nft > long_nft) {
+          long remain = (nft - System.currentTimeMillis()) / 1000;
+          logger.warn("Next fetch time for host {} is more then 15 minutes in the future - {} seconds remaining", e.getKey(), remain);
+        }
+        
+        Long la = e.getValue().lastAssigned;
+        if (la != null && la < long_ago) {
+          long period = (System.currentTimeMillis() - la) / 1000;
+          logger.warn("Old last-assigned for host {} - more than 15 minutes in the past - {} seconds ago", e.getKey(), period);
+        }
       }
     }
     
@@ -541,6 +554,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       double durr = Math.round(dur / 1000.0) / 1000.0;
       logger.trace("Sorting and selecting best URL out of {} hosts took {}ms -> resulting delay: {}ms for host {}", sorted.size(), durr, delay, best.host);
     }
+    
     if (best.nextFetchTime > threshold)
       return null;
     
@@ -593,6 +607,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       assign(best_url, crawler);
       in_progress_db.put(best_url);
       fetcher.select(best_url);
+      best.lastAssigned = System.currentTimeMillis();
       return best_url;
     } catch (TransactionAbort e) {
       throw new RuntimeException(e);

@@ -251,14 +251,20 @@ public class Frontier extends Configurable {
     {
       WebURL url;
       synchronized (mutex) {
-        if (!finished_seeds.isEmpty()) {
-          // Handle one ended seed if there are any
-          Iterator<Long> iter = finished_seeds.iterator();
+        // Handle one ended seed if there are any
+        Iterator<Long> iter = finished_seeds.iterator();
+        
+        while (iter.hasNext()) {
           long finished_seed = iter.next();
           long num_offspring = queue.getNumOffspring(finished_seed);
+          // Only call handleSeedEnd when there is no more offspring
           if (num_offspring == 0) {
+            logger.debug("Seed {} is marked as finished and has no remaining offspring - calling WebCrawler#handleSeedEnd on {}", finished_seed, crawler);
             crawler.handleSeedEnd(finished_seed);
             iter.remove();
+            break;
+          } else {
+            logger.debug("Seed {} is marked as finished but has {} offspring in queue - postponing calling WebCrawler#handleSeedEnd", finished_seed, num_offspring);
           }
         }
         
@@ -294,8 +300,10 @@ public class Frontier extends Configurable {
     counters.increment(Counters.ReservedCounterNames.PROCESSED_PAGES);
     synchronized (mutex) {
       queue.setFinishedURL(crawler, webURL);
-      if (queue.getNumOffspring(webURL.getSeedDocid()) == 0)
+      if (queue.getNumOffspring(webURL.getSeedDocid()) == 0) {
+        logger.debug("{} finished {} - seed has no offspring left - marking {} as finished", crawler, webURL, webURL.getSeedDocid());
         finished_seeds.add(webURL.getSeedDocid());
+      }
     }
   }
 
