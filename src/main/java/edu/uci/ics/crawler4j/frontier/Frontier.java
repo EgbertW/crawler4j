@@ -99,6 +99,11 @@ public class Frontier extends Configurable {
           continue;
         }
         
+        if (finished_seeds.contains(url.getSeedDocid())) {
+          logger.warn("Not scheduling {} - its seed is marked as finished", url);
+          continue;
+        }
+        
         if (url.getDocid() < 0) {
           long docid = this.docIdServer.getNewUnseenDocID(url.getURL());
           if (docid == -1)
@@ -141,6 +146,11 @@ public class Frontier extends Configurable {
         return false;
       }
 
+      if (finished_seeds.contains(url.getSeedDocid())) {
+        logger.warn("Not scheduling {} - its seed is marked as finished", url);
+        return false;
+      }
+      
       if (url.getDocid() < 0) {
         long docid = this.docIdServer.getNewUnseenDocID(url.getURL());
         if (docid == -1)
@@ -240,6 +250,10 @@ public class Frontier extends Configurable {
    * @param seed_doc_id The docid of the seed URL to mark as finished.
    */
   public void setSeedFinished(long seed_doc_id) {
+    // Nothing to do if it's already marked as finished
+    if (finished_seeds.contains(seed_doc_id))
+      return;
+    
     synchronized (mutex) {
       finished_seeds.add(seed_doc_id);
       queue.removeOffspring(seed_doc_id);
