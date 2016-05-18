@@ -131,7 +131,7 @@ public class Util {
     }
 
     // PDF is text-like, so perform custom detection for %PDF header
-    if (contentType == null && content[0] == '%' && content[1] == 'P' && content[2] == 'D' && content[3] == 'F') {
+    if (contentType == null && content.length > 4 && content[0] == '%' && content[1] == 'P' && content[2] == 'D' && content[3] == 'F') {
       return ContentType.BINARY;
     }
       
