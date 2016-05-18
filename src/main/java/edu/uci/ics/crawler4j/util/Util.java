@@ -112,7 +112,7 @@ public class Util {
           end_pos = contentType.length();
         
         String subtype = contentType.substring(pos + 1, end_pos);
-        if (end_pos > 0) { // Encoding is probably specified
+        if (end_pos > 0 && end_pos < contentType.length()) { // Encoding is probably specified
           String encoding_str = contentType.substring(end_pos + 1).trim();
           if (encoding_str.startsWith("charset="))
             encoding_header = encoding_str.substring(8);
