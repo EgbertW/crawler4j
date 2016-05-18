@@ -99,31 +99,72 @@ public class Util {
    * @return the type of the document
    */
   public static ContentType getContentType(String contentType, byte[] content) {
-    // First check if contentType is text/plain to filter out the robots.txt
-    if (contentType != null && contentType.contains("text/plain"))
-      return ContentType.TEXT;
+    // Check if we may be dealing with a binary content-type
+    String encoding_header = null;
+    if (contentType != null) {
+      int pos = contentType.indexOf("/");
+      if (pos > 0) {
+        String type = contentType.substring(0, pos);
+        int end_pos = contentType.indexOf(";", pos);
+        if (end_pos == -1)
+          end_pos = contentType.indexOf(" ", pos);
+        if (end_pos == -1)
+          end_pos = contentType.length();
+        
+        String subtype = contentType.substring(pos + 1, end_pos);
+        if (end_pos > 0) { // Encoding is probably specified
+          String encoding_str = contentType.substring(end_pos + 1).trim();
+          if (encoding_str.startsWith("charset="))
+            encoding_header = encoding_str.substring(8);
+          else if (encoding_str.startsWith("encoding="))
+            encoding_header = encoding_str.substring(9);
+        }
+        
+        if (
+            !type.equals("text")         // Text detection performed below
+            && !subtype.equals("xml")    // Generic XML type (application/xml) 
+            && !subtype.contains("+xml") // +xml means a format using XML, such as application/rss+xml
+        ) {
+          return ContentType.BINARY;
+        }
+      }
+    }
 
-    // Check the byte order marker
+    // PDF is text-like, so perform custom detection for %PDF header
+    if (contentType == null && content[0] == '%' && content[1] == 'P' && content[2] == 'D' && content[3] == 'F') {
+      return ContentType.BINARY;
+    }
+      
+    // Perform text and encoding detection
+    
+    // First check for a byte order marker
+    String stringContent = null;
     String encoding = detectEncoding(content);
-    String stringContent;
+    
+    // Use encoding specified in header when detection failed
+    if (encoding == null && encoding_header != null)
+      encoding = encoding_header;
+    
     if (encoding == null) {
       // It appears the character set could not be detected. We'll assume
       // that, based on the absence of a Byte Order Marker, the character
       // set is at least not UTF-16 or UTF-32.
       if (checkIfBinary(content))
         return ContentType.BINARY;
-      
+    
       // It seems there's a decent amount of ASCII-characters in there,
       // so let's try to decode it using UTF-8
       encoding = "UTF-8";
     }
     
-    try {
-      stringContent = new String(content, encoding);
-    } catch (UnsupportedEncodingException e) {
-      return ContentType.BINARY;
+    if (stringContent == null) {
+      try {
+        stringContent = new String(content, encoding);
+      } catch (UnsupportedEncodingException e) {
+        return ContentType.BINARY;
+      }
     }
-      
+    
     if (hasHTMLContent(stringContent)) {
       return ContentType.HTML;
     } else if (hasXMLContent(stringContent)) {
