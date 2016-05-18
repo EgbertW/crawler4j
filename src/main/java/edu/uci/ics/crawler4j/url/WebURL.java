@@ -338,7 +338,12 @@ public class WebURL implements Serializable, Comparable<WebURL> {
     if (keyData != null)
       return keyData;
     
-    keyData = new byte[WebURL.KEY_SIZE];
+    keyData = createKey(priority, depth, docid);
+    return keyData;
+  }
+  
+  public static byte [] createKey(byte priority, short depth, long docid) {
+    byte [] keyData = new byte[WebURL.KEY_SIZE];
     
     // Because the ordering is done strictly binary, negative values will come last, because
     // their binary representation starts with the MSB at 1. In order to fix this, we'll have
@@ -348,6 +353,7 @@ public class WebURL implements Serializable, Comparable<WebURL> {
     byte binary_priority = (byte)(priority - Byte.MIN_VALUE);
     keyData[0] = binary_priority;
     keyData[1] = (depth > Byte.MAX_VALUE ? Byte.MAX_VALUE : (byte) depth);
+    
     Util.putLongInByteArray(docid, keyData, 2);
     return keyData;
   }
@@ -359,21 +365,20 @@ public class WebURL implements Serializable, Comparable<WebURL> {
    * @return -1 if the current URL comes before rhs, 1 if it comes after and 0 if they are equal
    */
   public int compareTo(WebURL rhs) {
-    return compareKey(rhs.getKey());
+    return compareKey(getKey(), rhs.getKey());
   }
   
   /**
    * Compare the WebURL's key with a different key
+   * @param lhs Left hand side of the comparison
+   * @param rhs Right hand side of the comparison
    *  
-   * @param okey The key to compare with
    * @return -1 if the current URL comes before key, 1 if it comes after and 0 if they are equal
    */ 
-  public int compareKey(byte [] okey) {
-    byte [] mykey = getKey();
-    
+  public static int compareKey(byte [] lhs, byte [] rhs) {
     for (int i = 0; i < KEY_SIZE; ++i)
-      if (mykey[i] != okey[i])
-        return (mykey[i] & 0xFF) - (okey[i] & 0xFF);
+      if (lhs[i] != rhs[i])
+        return (lhs[i] & 0xFF) - (rhs[i] & 0xFF);
     
     return 0;
   }

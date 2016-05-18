@@ -37,7 +37,6 @@ import com.sleepycat.je.Transaction;
 
 import edu.uci.ics.crawler4j.url.WebURL;
 import edu.uci.ics.crawler4j.util.IterateAction;
-import edu.uci.ics.crawler4j.util.Processor;
 import edu.uci.ics.crawler4j.util.Util;
 
 /**

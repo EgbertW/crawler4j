@@ -76,12 +76,14 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     protected String host;
     protected long nextFetchTime;
     protected Long lastAssigned = null;
+    protected byte [] host_key;
     
     public WebURL head;
     public WebURL tail;
     
-    public HostQueue(String host) {
+    public HostQueue(String host, WebURL first) {
       this.host = host;
+      this.host_key = WebURL.createKey(first.getPriority(), (short)0, first.getSeedDocid());
     }
   }
   
@@ -110,7 +112,11 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       if (lhs.nextFetchTime != rhs.nextFetchTime)
         return Long.compare(lhs.nextFetchTime,  rhs.nextFetchTime);
       
-      return lhs.head.compareTo(rhs.head);
+      // We compare on the host-key (of the seed), because
+      // the elements within the host queue are already
+      // ordered using the priority, depth and docid if of the
+      // actual URLs.
+      return WebURL.compareKey(lhs.host_key, rhs.host_key);
     }
   }
   
@@ -144,7 +150,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
             HostQueue hq = host_queue.get(host);
           
             if (hq == null) {
-              hq = new HostQueue(host);
+              hq = new HostQueue(host, url);
               hq.head = hq.tail = url;
               host_queue.put(host, hq);
             } else {
@@ -185,7 +191,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     if (hq == null) {
       url.setPrevious((byte []) null);
       url.setNext((byte []) null);
-      hq = new HostQueue(host);
+      hq = new HostQueue(host, url);
       hq.head = url;
       hq.tail = url;
       
@@ -404,7 +410,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
         logger.trace("Inserting {} URLs for host {}", host_urls.size(), host);
       
       if (hq == null) {
-        hq = new HostQueue(host);
+        hq = new HostQueue(host, host_urls.iterator().next());
         hq.head = hq.tail = null;
         host_queue.put(host, hq);
         
@@ -432,7 +438,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
           
           prev = cursor;
           byte [] next_key = cursor.getNext();
-          if (hq.tail != null && next_key != null && hq.tail.compareKey(next_key) == 0) {
+          if (hq.tail != null && next_key != null && WebURL.compareKey(hq.tail.getKey(), next_key) == 0) {
             cursor = hq.tail;
           } else {
             try {
@@ -572,7 +578,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       host_queue.remove(best.host);
     } else {
       // Move the head to the next element
-      if (best.tail.compareKey(next_key) == 0) {
+      if (WebURL.compareKey(best.tail.getKey(), next_key) == 0) {
         logger.trace("After popping head for host {}, one element remains: {}", best.host, best.tail);
         best.head = best.tail;
       } else {
