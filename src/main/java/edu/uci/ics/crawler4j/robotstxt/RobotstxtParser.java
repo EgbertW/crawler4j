@@ -52,6 +52,11 @@ public class RobotstxtParser {
       if (commentIndex > -1) {
         line = line.substring(0, commentIndex);
       }
+      //Check if there is an UTF-8 BOM at the front of the line, if
+      //there is, then remove it.
+      if (line.startsWith("\uFEFF")) {
+    	  line = line.substring(1);
+      }
       
       String lc = line.toLowerCase();
       if (lc.contains("<!doctype") || lc.contains("<head") || lc.contains("<html") || lc.contains("<body") || lc.contains("<?xml")) {
@@ -62,7 +67,7 @@ public class RobotstxtParser {
         logger.info("Robots.txt obtained from {} seems to be HTML, aborting parse", url);
         return directives;
       }
-
+      
       // remove any html markup
       line = line.replaceAll("<[^>]+>", "").trim();
       if (line.isEmpty()) {
