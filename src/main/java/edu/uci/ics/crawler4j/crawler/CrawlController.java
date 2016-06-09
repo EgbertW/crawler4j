@@ -448,7 +448,7 @@ public void waitUntilFinish() {
       // using the WARN level here, as the user specifically asked to add this seed
       logger.warn("Robots.txt does not allow this seed: {}", pageUrl);
     } else {
-      frontier.schedule(webUrl);
+      frontier.schedule(webUrl, true); // We are adding a seed
     }
     return webUrl.getDocid();
   }
