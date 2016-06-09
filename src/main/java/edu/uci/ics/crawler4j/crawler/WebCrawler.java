@@ -315,6 +315,12 @@ public class WebCrawler implements Runnable {
           
         try {
           WebURL fetchURL = handleUrlBeforeProcess(assignedURL);
+          
+          // Unselect the URL in the page fetcher if it's not going to be crawled or if the crawler changed it
+          // to a different host
+          if (fetchURL == null || !fetchURL.getURI().getHost().equals(assignedURL.getURI().getHost()))
+            pageFetcher.unselect(assignedURL);
+
           if (fetchURL != null && !fetchURL.getSeedEnded())
             processPage(fetchURL);
         } catch (OutOfMemoryError e) {
