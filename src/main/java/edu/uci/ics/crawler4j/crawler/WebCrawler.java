@@ -398,15 +398,8 @@ public class WebCrawler implements Runnable {
 
       fetchResult = pageFetcher.fetchPage(curURL);
       int statusCode = fetchResult.getStatusCode();
-      if(statusCode!=999){
-    	  handlePageStatusCode(curURL, statusCode, EnglishReasonPhraseCatalog.INSTANCE
+      handlePageStatusCode(curURL, statusCode, EnglishReasonPhraseCatalog.INSTANCE
     			  .getReason(statusCode, Locale.ENGLISH)); // Finds the status reason for all known statuses
-      } 
-      else
-      {
-    	  handlePageStatusCode(curURL, statusCode,"Domain parking"); // Finds the status reason for all known statuses
-   
-      }
       Page page = new Page(curURL);
       page.setFetchResponseHeaders(fetchResult.getResponseHeaders());
       page.setStatusCode(statusCode);
@@ -445,16 +438,9 @@ public class WebCrawler implements Runnable {
             }
           }
         } else { // All other http codes other than 3xx & 200
-          int statuscode = fetchResult.getStatusCode();
           String description = "";
-          if(statuscode==999)
-          {
-        	  description = "Domain parking";
-          } 
-          else {
           description = EnglishReasonPhraseCatalog.INSTANCE
               .getReason(fetchResult.getStatusCode(), Locale.ENGLISH); // Finds the status reason for all known statuses
-          }
           String contentType = "";
           if (fetchResult.getEntity() != null && fetchResult.getEntity().getContentType() != null)
               contentType = fetchResult.getEntity().getContentType().getValue();
