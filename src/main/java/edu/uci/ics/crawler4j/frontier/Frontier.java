@@ -112,7 +112,7 @@ public class Frontier extends Configurable {
         }
         
         if (url.getSeedDocid() < 0)
-          url.setSeedDocid(url.getDocid());
+          throw new RuntimeException("SeedDocid is not set for URL " + url.getURL());
         
         accepted.add(url);
       }
@@ -132,14 +132,26 @@ public class Frontier extends Configurable {
   }
   
   /**
-   * Private method that actually puts a new URL in the queue. It checks
+   * Put a new URL that is not a seed in the queue.
+   * 
+   * @see Frontier#schedule(WebURL, boolean)
+   * 
+   * @param url The URL to schedule
+   * @return True when enqueued, false otherwise
+   */
+  public boolean schedule(WebURL url) {
+    return schedule(url, false);
+  }
+  /**
+   * Method that actually puts a new URL in the queue. It checks
    * the DocID. If it is -1, it is assumed that this is a newly discovered URL 
    * that should be crawled. If it has already been seen, it is skipped.
    * 
    * @param url The WebURL to schedule
+   * @param isSeed Whether the URL is a new seed
    * @return True if the URL was added to the queue, false otherwise.
    */
-  public boolean schedule(WebURL url) {
+  public boolean schedule(WebURL url, boolean isSeed) {
     synchronized (mutex) {
       if (!url.isHttp()) {
         logger.warn("Not scheduling URL {} - Protocol {} not supported", url.getURL(), url.getProtocol());
@@ -157,10 +169,15 @@ public class Frontier extends Configurable {
           return false;
         url.setDocid(docid);
       }
+      
+      if (isSeed) {
+        url.setSeedDocid(url.getDocid());
+        url.setParentDocid(-1);
+      }
 
       // A URL without a seed doc ID is a seed of itself.
       if (url.getSeedDocid() < 0)
-        url.setSeedDocid(url.getDocid());
+        throw new RuntimeException("SeedDocid is not set for URL " + url.getURL());
 
       try {
         queue.enqueue(url);
@@ -322,7 +339,7 @@ public class Frontier extends Configurable {
     synchronized (mutex) {
       queue.setFinishedURL(crawler, webURL);
       if (queue.getNumOffspring(webURL.getSeedDocid()) == 0) {
-        logger.debug("{} finished {} - seed has no offspring left - marking {} as finished", crawler, webURL, webURL.getSeedDocid());
+        logger.info("{} finished {} - seed has no offspring left - marking {} as finished", crawler, webURL, webURL.getSeedDocid());
         finished_seeds.add(webURL.getSeedDocid());
       }
     }
