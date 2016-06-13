@@ -638,6 +638,10 @@ public class URLQueue {
       commit(my_txn);
     }
     
+    if (num_removed.val != to_remove.val)
+        throw new RuntimeException("SeedCountDB indicates there should be " + to_remove.val + " offspring of seed " + seed_doc_id + " but only " + num_removed.val + " were removed");
+        
+    this.setSeedCount(seed_doc_id, 0);
     return num_removed.get();
   }
   
