@@ -52,6 +52,8 @@ public class URLQueue {
   /** The seed counter database on disk */
   private Database seedCountDB = null;
   
+  private boolean resumable;
+  
   /** The seed counter */
   private final Map<Long, Integer> seedCount = new HashMap<Long, Integer>();
   
@@ -94,10 +96,11 @@ public class URLQueue {
    */
   public URLQueue(Environment env, String dbName, boolean resumable) throws TransactionAbort {
     this.env = env;
+    this.resumable = resumable;
     DatabaseConfig dbConfig = new DatabaseConfig();
     dbConfig.setAllowCreate(true);
-    dbConfig.setTransactional(true);
-    dbConfig.setDeferredWrite(false);
+    dbConfig.setTransactional(resumable);
+    dbConfig.setDeferredWrite(!resumable);
     urlsDB = env.openDatabase(null, dbName, dbConfig);
     webURLBinding = new WebURLTupleBinding();
     
@@ -146,7 +149,7 @@ public class URLQueue {
    * @return True if a transaction was started (and should be commited, false otherwise)
    */
   protected Transaction beginTransaction() {
-    if (txn != null)
+    if (txn != null || !resumable)
       return null;
     
     txn = env.beginTransaction(null, null);
