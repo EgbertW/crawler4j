@@ -610,13 +610,19 @@ public class URLQueue {
    */
   public int removeOffspring(final long seed_doc_id) throws TransactionAbort {
     final Util.Reference<Integer> num_removed = new Util.Reference<Integer>(0);
+    final Util.Reference<Integer> to_remove = new Util.Reference<Integer>(seedCount.get(seed_doc_id));
+    if (to_remove.val == null)
+      return 0;
+    
     Transaction my_txn = beginTransaction();
     try {
       iterate(new DBVisitor() {
         @Override
         public IterateAction visit(WebURL url) {
           if (url.getSeedDocid() == seed_doc_id) {
-            num_removed.assign(num_removed.get() + 1);
+            if (++num_removed.val == to_remove.val)
+              return IterateAction.REMOVE_AND_RETURN;
+      
             return IterateAction.REMOVE;
           }
           return IterateAction.CONTINUE;
