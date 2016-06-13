@@ -228,32 +228,12 @@ public class Frontier extends Configurable {
   }
   
   /** 
-   * Remove all URls from a specific host from the docidserver. This 
-   * will enable them to be crawled again, if they are added to the queue again.
+   * Remove a specific URL from the DocIDServer so that it can be crawled again.
    * 
-   * @param host The host to remove
+   * @param url The URL to forget
    */
-  public void removeHostDocids(String host)
-  {
-    final String host_to_remove = host.toLowerCase();
-    docIdServer.iterate(new Processor<String, IterateAction>() {
-      public IterateAction apply(String url) {
-        try {
-          URL cur_url = new URL(url);
-          String cur_host = cur_url.getHost().toLowerCase();
-          if (cur_host.equals(host_to_remove))
-            return IterateAction.REMOVE;
-        }
-        catch (MalformedURLException e)
-        {
-          // We don't want any malformed URLs in there. It shouldn't have
-          // happened in th first place, but clean it up now anyway.
-          logger.error("Invalid URL in the DocIDServer: {}", url);
-          return IterateAction.REMOVE;
-        }
-        return IterateAction.CONTINUE;
-      }
-    });
+  public void forgetURL(String url) {
+    docIdServer.forget(url);
   }
   
   /**

@@ -162,6 +162,25 @@ public class DocIDServer extends Configurable {
     }
   }
   
+  public boolean forget(String url) {
+    synchronized (mutex) {
+      DatabaseEntry key = new DatabaseEntry(url.getBytes());
+      DatabaseEntry val = new DatabaseEntry();
+      
+      if (docIDsDB.get(null, key, val, null) == OperationStatus.NOTFOUND)
+        return false;
+      
+      Cursor c = docIDsDB.openCursor(null, null);
+      if (c.getSearchKey(key, val, null) == OperationStatus.NOTFOUND)
+        return false;
+      
+      if (c.delete() == OperationStatus.SUCCESS)
+        return true;
+      
+      throw new RuntimeException("Failed to remove entry for URL " + url);
+    }
+  }
+  
   /** 
    * Iterate over all the docids and hand them one-by-one to a callback,
    * that can then decide whether to remove, return, remove and return or continue
