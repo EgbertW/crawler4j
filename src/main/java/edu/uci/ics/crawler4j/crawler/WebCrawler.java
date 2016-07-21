@@ -398,7 +398,16 @@ public class WebCrawler implements Runnable {
 
       fetchResult = pageFetcher.fetchPage(curURL);
       int statusCode = fetchResult.getStatusCode();
-      String reasonStatusCode = EnglishReasonPhraseCatalog.INSTANCE.getReason(statusCode, Locale.ENGLISH);
+      String reasonStatusCode;
+      try {
+        reasonStatusCode = EnglishReasonPhraseCatalog.INSTANCE.getReason(statusCode, Locale.ENGLISH);
+      } catch (IllegalArgumentException e) {
+        String reason = fetchResult.getStatusReason();
+        if (reason == null || reason.isEmpty())
+          reasonStatusCode = "Unknown / invalid status code " + statusCode;
+        else
+          reasonStatusCode = "Unknown / invalid status code " + statusCode + ": " + reason;
+      }
       try 
       {
     	  handlePageStatusCode(curURL, statusCode, reasonStatusCode);// Finds the status reason for all known statuses

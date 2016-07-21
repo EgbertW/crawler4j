@@ -35,6 +35,7 @@ public class PageFetchResult {
   protected static final Logger logger = LoggerFactory.getLogger(PageFetchResult.class);
 
   protected int statusCode;
+  protected String statusReason;
   protected HttpEntity entity = null;
   protected Header[] responseHeaders = null;
   protected String fetchedUrl = null;
@@ -44,8 +45,13 @@ public class PageFetchResult {
     return statusCode;
   }
 
-  public void setStatusCode(int statusCode) {
+  public String getStatusReason() {
+    return statusReason;
+  }
+  
+  public void setStatusCode(int statusCode, String statusReason) {
     this.statusCode = statusCode;
+    this.statusReason = statusReason;
   }
 
   public HttpEntity getEntity() {

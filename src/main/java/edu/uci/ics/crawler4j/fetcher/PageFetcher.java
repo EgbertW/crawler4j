@@ -464,6 +464,7 @@ public class PageFetcher extends Configurable {
       
       // Setting HttpStatus
       int statusCode = response.getStatusLine().getStatusCode();
+      String statusReason = response.getStatusLine().getReasonPhrase();
 
       // If Redirect ( 3xx )
       if (statusCode == HttpStatus.SC_MOVED_PERMANENTLY || statusCode == HttpStatus.SC_MOVED_TEMPORARILY ||
@@ -504,7 +505,7 @@ public class PageFetcher extends Configurable {
         }
       }
 
-      fetchResult.setStatusCode(statusCode);
+      fetchResult.setStatusCode(statusCode, statusReason);
       return fetchResult;
 
     } finally { // occurs also with thrown exceptions
