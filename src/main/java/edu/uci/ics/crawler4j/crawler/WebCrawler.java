@@ -291,7 +291,24 @@ public class WebCrawler implements Runnable {
 
   @Override
   public void run() {
-    onStart();
+    try
+    {
+      onStart();
+      onRun();
+    } catch (Exception e) {
+      logger.error("Uncaught exception occured while processing <<{}>>. Shutting down in 30 seconds", assignedURL);
+      logger.error("Stacktrace", e);
+      myController.shutdown();
+      try {
+        Thread.sleep(60000);
+      } catch (InterruptedException e2) {}
+      
+      logger.error("60 seconds have passed. Terminating VM");
+      System.exit(1);
+    }
+  }
+  
+  private void onRun() {
     while (true) {
       if (assignedURL == null) {
         isWaitingForNewURLs = true;
