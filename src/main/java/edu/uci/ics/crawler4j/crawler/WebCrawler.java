@@ -295,8 +295,8 @@ public class WebCrawler implements Runnable {
     {
       onStart();
       onRun();
-    } catch (Exception e) {
-      logger.error("Uncaught exception occured while processing <<{}>>. Shutting down in 30 seconds", assignedURL);
+    } catch (Throwable e) {
+      logger.error("Uncaught exception occurred while processing <<{}>>. Shutting down in 30 seconds", assignedURL);
       logger.error("Stacktrace", e);
       myController.shutdown();
       try {
