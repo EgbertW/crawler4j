@@ -20,6 +20,7 @@ package edu.uci.ics.crawler4j.util;
 import java.nio.ByteBuffer;
 import java.io.UnsupportedEncodingException;
 
+import org.mozilla.universalchardet.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -144,6 +145,22 @@ public class Util {
     // Use encoding specified in header when detection failed
     if (encoding == null && encoding_header != null)
       encoding = encoding_header;
+
+    if (encoding == null || 
+        (encoding != Constants.CHARSET_UTF_16BE &&
+         encoding != Constants.CHARSET_UTF_16LE &&
+         encoding != Constants.CHARSET_UTF_32BE &&
+         encoding != Constants.CHARSET_UTF_32LE)
+    )
+    {
+      // UTF-16 and UTF-32 may contain ASCII NULL values, but other
+      // character sets may not. If they occur and a UTF-16 or UTF-32
+      // character set was not detected, we can safely assume this is binary data.
+      for (int pos = 0; pos < content.length && pos < 2048; ++pos) {
+        if (content[pos] == 0x0)
+          return ContentType.BINARY;
+      }
+    }
     
     if (encoding == null) {
       // It appears the character set could not be detected. We'll assume
@@ -184,7 +201,7 @@ public class Util {
    */
   public static boolean hasHTMLContent(String str) {
     str = str.toLowerCase();
-    if (str.contains("<!doctype") || str.contains("<html") || str.contains("<body") || str.contains("<head"))
+    if (str.contains("<!doctype") || str.contains("<html") || str.contains("<body") || str.contains("<head") || str.contains("<div"))
       return true;
     return false;
   }
@@ -264,7 +281,7 @@ public class Util {
   }
 
   /**
-   * Estimate if the content is binary or not. This is done by cheking the characters
+   * Estimate if the content is binary or not. This is done by checking the characters
    * in the first 2048 bytes. It is assumed that it is already known that
    * the content is not UTF-16 or UTF-16 by checking the byte order marker.
    * If ASCII-0 occurs, it is deemed to be binary. If not, then other ASCII control
