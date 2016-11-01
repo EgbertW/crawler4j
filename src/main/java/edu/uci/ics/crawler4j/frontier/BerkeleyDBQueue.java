@@ -207,6 +207,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
       
       if (result)
       {
+        logger.error("enqueue: Inserted {} into crawl_queue_db", url);
         result &= host_queue.put(host, hq) == null;
         if (!result)
           logger.error("Couldn't find HostQueue, but it was not empty - race?");
@@ -252,6 +253,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
               to_insert.setPrevious((byte []) null);
               throw new RuntimeException("Could not insert " + to_insert);
             }
+            logger.error("enqueue: Inserted {} into crawl_queue_db", to_insert);
           }
         });
         
@@ -293,6 +295,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
               to_insert.setNext((byte []) null);
               throw new RuntimeException("Could not insert " + to_insert);
             }
+            logger.error("enqueue: Inserted {} into crawl_queue_db", to_insert);
           }
         });
         
@@ -373,6 +376,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
           // Insert the new URL
           tr_ins.setPrevious(tr_prev);
           tr_ins.setNext(tr_next);
+          logger.error("enqueue: Inserted {} into crawl_queue_db", tr_ins);
           result = crawl_queue_db.put(tr_ins);
           if (result == false)
             throw new RuntimeException("Could not insert new URL into crawl_queue: " + tr_ins);
@@ -613,6 +617,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     try {
       assign(best_url, crawler);
       in_progress_db.put(best_url);
+      logger.error("getNextURL: Added {} to in_progress_db for {}", best_url, crawler);
       fetcher.select(best_url);
       best.lastAssigned = System.currentTimeMillis();
       return best_url;
@@ -628,6 +633,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     
     try {
       in_progress_db.removeURL(url);
+      logger.error("Abandon: Removed {} from in_progress_db by {}", url, crawler);
     } catch (TransactionAbort e) {
       throw new QueueException("Failed to remove URL from in_progress_db", url);
     }
@@ -640,7 +646,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     unassign(url, crawler);
     try {
       in_progress_db.removeURL(url);
-      logger.trace("Removed {} from in_progress_db", url);
+      logger.error("Finish: Removed {} from in_progress_db by {}", url, crawler);
     } catch (TransactionAbort e) {
       logger.error("Could not remove {} from in_progress_db", url, e);
       throw new QueueException("Failed to remove URL from in_progress_db", url);
@@ -694,7 +700,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
 
   @Override
   public void removeOffspring(final long seed_doc_id) {
-    logger.trace("Removing all offspring for {}", seed_doc_id);
+    logger.error("Removing all offspring for {}", seed_doc_id);
     final Util.Reference<Integer> num_removed = new Util.Reference<Integer>(0);
         try {
       crawl_queue_db.iterate(new DBVisitor() {

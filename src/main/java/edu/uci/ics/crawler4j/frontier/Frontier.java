@@ -256,6 +256,8 @@ public class Frontier extends Configurable {
     
     synchronized (mutex) {
       finished_seeds.add(seed_doc_id);
+      logger.error("Removing all offspring for seed [[{}]] on request", seed_doc_id);
+      logger.error("Backtrace", new Throwable());
       queue.removeOffspring(seed_doc_id);
     }
   }
@@ -286,7 +288,7 @@ public class Frontier extends Configurable {
         
         if (url != null && finished_seeds.contains(url.getSeedDocid())) {
           // No need to hand out this URL again, it's already finished
-          logger.debug("Skipping {} as its seed is finished", url);
+          logger.error("Skipping {} as its seed is finished", url);
           queue.setFinishedURL(crawler, url);
           continue;
         }
@@ -305,6 +307,8 @@ public class Frontier extends Configurable {
         continue;
       }
       
+      logger.error("Validation - {} got seed [[{}]] offspring {}", crawler, url.getSeedDocid(), url);
+      
       // Proper URL found, go crawl it!
       return url;
     }
@@ -322,6 +326,7 @@ public class Frontier extends Configurable {
     synchronized (mutex) {
       queue.setFinishedURL(crawler, webURL);
       if (queue.getNumOffspring(webURL.getSeedDocid()) == 0) {
+        validateSeedEmpty(webURL, true);
         logger.info("{} finished {} - seed has no offspring left - marking {} as finished", crawler, webURL, webURL.getSeedDocid());
         finished_seeds.add(webURL.getSeedDocid());
       }
