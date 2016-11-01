@@ -180,7 +180,10 @@ public class Frontier extends Configurable {
         throw new RuntimeException("SeedDocid is not set for URL " + url.getURL());
 
       try {
-        queue.enqueue(url);
+        if (!queue.enqueue(url)) {
+          logger.error("Failed to enqueue URL {}", url);
+          return false;
+        }
         ++scheduledPages;
         counters.increment(Counters.ReservedCounterNames.SCHEDULED_PAGES);
       } catch (RuntimeException e) {
@@ -270,6 +273,7 @@ public class Frontier extends Configurable {
           long num_offspring = queue.getNumOffspring(finished_seed);
           // Only call handleSeedEnd when there is no more offspring
           if (num_offspring == 0) {
+            logger.info("Timeout occured for {} - handling reschedule after timeout - checking queue state", webUrl.getURL(), webUrl.getDocid());
             logger.debug("Seed {} is marked as finished and has no remaining offspring - calling WebCrawler#handleSeedEnd on {}", finished_seed, crawler);
             crawler.handleSeedEnd(finished_seed);
             iter.remove();
@@ -323,6 +327,10 @@ public class Frontier extends Configurable {
         finished_seeds.add(webURL.getSeedDocid());
       }
     }
+  }
+
+  public void validateSeedEmpty(WebURL webURL, boolean empty) {
+    queue.validateSeedEmpty(webURL, empty);
   }
 
   public long numOffspring(Long seedDocid) {

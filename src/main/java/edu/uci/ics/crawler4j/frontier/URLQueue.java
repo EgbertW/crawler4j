@@ -263,7 +263,8 @@ public class URLQueue {
         if (seedCountDB != null) {
           Transaction my_txn = beginTransaction();
           try {
-            seedCountDB.delete(txn, key);
+            if (seedCountDB.delete(txn, key) != OperationStatus.SUCCESS)
+              abort(new RuntimeException("Removing count from database did not return SUCCESS"));
           } catch (DatabaseException e) {
             my_txn = null;
             abort(e);
@@ -281,7 +282,9 @@ public class URLQueue {
         Transaction my_txn = beginTransaction();
         try {
           DatabaseEntry val = new DatabaseEntry(Util.int2ByteArray(value));
-          seedCountDB.put(txn, key, val);
+          if (seedCountDB.put(txn, key, val) != OperationStatus.SUCCESS)
+            abort(new RuntimeException("Putting count in database did not return SUCCESS"));
+          
         } catch (DatabaseException e) {
           my_txn = null;
           abort(e);
@@ -372,7 +375,9 @@ public class URLQueue {
         DatabaseEntry key = getDatabaseEntryKey(url);
         DatabaseEntry retrieve_value = new DatabaseEntry();
         if (urlsDB.get(txn, key, retrieve_value, null) == OperationStatus.NOTFOUND) {
-          urlsDB.put(txn, key, value);
+          if (urlsDB.put(txn, key, value) != OperationStatus.SUCCESS)
+              throw new TransactionAbort("Failed to insert new URL into queue");
+            
           seedIncrease(url.getSeedDocid());
           added = true;
         }

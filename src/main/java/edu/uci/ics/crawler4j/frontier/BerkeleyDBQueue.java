@@ -202,8 +202,16 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
         throw new RuntimeException(e);
       }
       
+      if (!result)
+        logger.error("Couldn't insert new URL into crawl_queue_db");
+      
       if (result)
+      {
         result &= host_queue.put(host, hq) == null;
+        if (!result)
+          logger.error("Couldn't find HostQueue, but it was not empty - race?");
+      }
+      
       if (debug)
         logger.trace("Inserting new host queue for host {} starting with {}", host, url);
       return result;
@@ -251,7 +259,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
         hq.tail = to_insert;
         if (debug)
           logger.trace("Performed tail-insert for host {} for {}", host, url);
-        return true;
+        return success.val;
       } catch (TransactionAbort e) {
         logger.error("Transaction aborted", e);
         throw new RuntimeException(e.getCause());
@@ -292,7 +300,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
         hq_ref.head = to_insert;
         if (debug)
           logger.trace("Performed head-insert for host {} for {}", host, url);
-        return true;
+        return success.val;
       } catch (TransactionAbort e) {
         logger.error("Transaction aborted", e);
         throw new RuntimeException(e.getCause());
@@ -647,6 +655,30 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
   @Override
   public long getNumOffspring(long seed_doc_id) {
     return crawl_queue_db.getSeedCount(seed_doc_id) + in_progress_db.getSeedCount(seed_doc_id);
+  }
+  
+  @Override
+  public void validateSeedEmpty(WebURL webURL, boolean empty) {
+    URI uri = webURL.getURI();
+    String host = uri.getHost();
+    
+    HostQueue hq = host_queue.get(host);
+    if (hq == null && empty != true)
+      logger.error("validateSeedEmpty: HostQueue does not have a record for {} but it should not be empty", host);
+    else if (hq != null && empty == true)
+      logger.error("validateSeedEmpty: HostQueue has a record for {} but it should not be empty", host);
+    
+    long seed_id = webURL.getSeedDocid();
+    long seed1 = crawl_queue_db.getSeedCount(seed_id);
+    long seed2 = in_progress_db.getSeedCount(seed_id);
+    
+    if (seed1 > 0 && empty)
+      logger.error("validateSeedEmpty: seed_id [[{}]] has {} offspring in crawl queue, but should be empty", seed_id, seed1);
+    if (seed2 > 0  && empty)
+      logger.error("validateSeedEmpty: seed_id [[{}]] has {} offspring in progress, but should be empty", seed_id, seed2);
+
+    if (!empty && seed1 == 0 && seed2 == 0)
+      logger.error("validateSeedEmpty: seed_id [[{}]] has 0 offspring, but should have offspring", seed_id);
   }
 
   @Override

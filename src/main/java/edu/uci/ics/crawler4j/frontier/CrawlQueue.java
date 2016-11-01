@@ -98,6 +98,8 @@ public interface CrawlQueue {
      */
     public long getNumOffspring(long seed_doc_id);
     
+    public void validateSeedEmpty(WebURL url, boolean empty);
+    
     /**
      * Remove all offspring of the given seed. This does not
      * guarantee that no URLs will be returned with this URL however;
