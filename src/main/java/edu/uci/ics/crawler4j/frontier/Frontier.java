@@ -273,7 +273,6 @@ public class Frontier extends Configurable {
           long num_offspring = queue.getNumOffspring(finished_seed);
           // Only call handleSeedEnd when there is no more offspring
           if (num_offspring == 0) {
-            logger.info("Timeout occured for {} - handling reschedule after timeout - checking queue state", webUrl.getURL(), webUrl.getDocid());
             logger.debug("Seed {} is marked as finished and has no remaining offspring - calling WebCrawler#handleSeedEnd on {}", finished_seed, crawler);
             crawler.handleSeedEnd(finished_seed);
             iter.remove();
