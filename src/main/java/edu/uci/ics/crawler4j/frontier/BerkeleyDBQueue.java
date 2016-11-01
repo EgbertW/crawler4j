@@ -668,14 +668,25 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     else if (hq != null && empty == true)
       logger.error("validateSeedEmpty: HostQueue has a record for {} but it should not be empty", host);
     
+    if (hq != null)
+    {
+      logger.error("validateSeedEmpty: Listing HostQueue for host {}", host);
+      showHostQueue(hq);
+    }
+    
     long seed_id = webURL.getSeedDocid();
     long seed1 = crawl_queue_db.getSeedCount(seed_id);
     long seed2 = in_progress_db.getSeedCount(seed_id);
     
     if (seed1 > 0 && empty)
       logger.error("validateSeedEmpty: seed_id [[{}]] has {} offspring in crawl queue, but should be empty", seed_id, seed1);
+    else if (seed1 > 0 && !empty)
+      logger.error("validateSeedEmpty: seed_id [[{}]] has {} offspring in crawl queue", seed_id, seed1);
+      
     if (seed2 > 0  && empty)
       logger.error("validateSeedEmpty: seed_id [[{}]] has {} offspring in progress, but should be empty", seed_id, seed2);
+    else
+      logger.error("validateSeedEmpty: seed_id [[{}]] has {} offspring in progress", seed_id, seed2);
 
     if (!empty && seed1 == 0 && seed2 == 0)
       logger.error("validateSeedEmpty: seed_id [[{}]] has 0 offspring, but should have offspring", seed_id);
