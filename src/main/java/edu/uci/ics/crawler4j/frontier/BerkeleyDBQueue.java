@@ -73,6 +73,7 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
    * @author Egbert van der Wal
    */
   protected static class HostQueue {
+    public static final long DO_NOT_SELECT = Long.MAX_VALUE;
     protected String host;
     protected long nextFetchTime;
     protected Long lastAssigned = null;
@@ -97,8 +98,20 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
   protected class HostComparator implements Comparator<HostQueue> {
     HostComparator(Map<String, Long> nextFetchTimes) {
       long long_nft = System.currentTimeMillis() + 900000;
+      
+      // Collect all docids in progress
+      HashSet<Long> docids = new HashSet<Long>();
+      for (WebURL u : urls_in_progress.values())
+        docids.add(u.getDocid());
+      
       for (Map.Entry<String, HostQueue> e : host_queue.entrySet()) {
         Long nft = nextFetchTimes.get(e.getKey());
+        
+        // Penalize URLs already in progress - they should not be selected 
+        WebURL head = e.getValue().head;
+        if (docids.contains(head.getDocid()))
+          nft = HostQueue.DO_NOT_SELECT;
+        
         e.getValue().nextFetchTime = nft == null ? 0 : nft;
         if (nft != null && nft > long_nft) {
           long remain = (nft - System.currentTimeMillis()) / 1000;
@@ -545,6 +558,12 @@ public class BerkeleyDBQueue extends AbstractCrawlQueue {
     
     // The head of the list is the best candidate
     HostQueue best = sorted.first();
+   
+    // A value of DO_NOT_SELECT indicates that 
+    // this shouldn't be selected because it's still in progress
+    if (best.nextFetchTime == HostQueue.DO_NOT_SELECT)
+      return null;
+    
     long threshold = System.currentTimeMillis() + config.getPolitenessDelay();
     long delay = Math.max(0, best.nextFetchTime - System.currentTimeMillis());
     
