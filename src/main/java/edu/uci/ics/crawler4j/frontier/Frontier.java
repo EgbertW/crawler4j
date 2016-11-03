@@ -127,7 +127,7 @@ public class Frontier extends Configurable {
     counters.setValue(Counters.ReservedCounterNames.SCHEDULED_PAGES, scheduledPages);
     
     synchronized (waitingList) {
-      waitingList.notifyAll();
+      waitingList.notify();
     }
   }
   

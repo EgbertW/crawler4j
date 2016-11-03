@@ -20,7 +20,7 @@ public abstract class AbstractCrawlQueue implements CrawlQueue {
   protected String last_error = null;
   
   /** The URLs that have been assigned to a crawler */
-  private HashMap<Long, WebURL> urls_in_progress = new HashMap<Long, WebURL>();
+  protected HashMap<Long, WebURL> urls_in_progress = new HashMap<Long, WebURL>();
   
   @Override
   public void setCrawlConfiguration(CrawlConfig config) {
