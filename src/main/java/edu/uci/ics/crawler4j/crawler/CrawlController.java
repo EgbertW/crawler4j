@@ -82,6 +82,8 @@ public class CrawlController extends Configurable {
 
   protected final Object waitingLock = new Object();
   protected final Environment env;
+  
+  protected int number_of_crawler_digits = 2;
 
   public CrawlController(CrawlConfig config, PageFetcher pageFetcher, RobotstxtServer robotstxtServer)
       throws Exception {
@@ -217,9 +219,12 @@ public class CrawlController extends Configurable {
       crawlersLocalData.clear();
       final List<T> crawlers = new ArrayList<>();
 
+      number_of_crawler_digits = Integer.toString(numberOfCrawlers).length();
+      
       for (int i = 1; i <= numberOfCrawlers; i++) {
         T crawler = crawlerFactory.newInstance();
-        Thread thread = new Thread(crawler, "Crawler " + i);
+        String name = String.format("Crawler %0" + number_of_crawler_digits + "d", i);
+        Thread thread = new Thread(crawler, name);
         crawler.setThread(thread);
         crawler.init(i, this);
         thread.start();
@@ -236,7 +241,6 @@ public class CrawlController extends Configurable {
       }
       
       monitorThread = new Thread(new Runnable() {
-
         @Override
         public void run() {
           try {
@@ -252,7 +256,8 @@ public class CrawlController extends Configurable {
                       logger.error("No, I won't. I'm quitting", new Throwable());
                       System.exit(1);
                       T crawler = crawlerFactory.newInstance();
-                      Thread newthread = new Thread(crawler, "Crawler " + (i + 1));
+                      String name = String.format("Crawler %0" + number_of_crawler_digits + "d", i + 1);
+                      Thread newthread = new Thread(crawler, name);
                       threads.remove(i);
                       threads.add(i, newthread);
                       T oldCrawler = crawlers.get(i);
@@ -307,7 +312,7 @@ public class CrawlController extends Configurable {
           }
         }
       });
-
+      
       monitorThread.start();
 
       if (isBlocking) {
