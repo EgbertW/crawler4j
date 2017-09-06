@@ -521,18 +521,21 @@ public class WebCrawler implements Runnable {
           webURL.setPriority(curURL.getPriority());
           
           boolean isHttp = webURL.isHttp();
+          boolean followed = false;
           if (isHttp && shouldVisit(page, webURL)) {
             if (robotstxtServer.allows(webURL)) {
               frontier.schedule(webURL);
+              followed = true;
             } else {
               logger.debug("Not visiting: {} as per the server's \"robots.txt\" policy", webURL.getURL());
             }
+          } else if (!isHttp) {
+            logger.debug("Not visiting: {} - Protocol {} not supported", webURL.getURL(), webURL.getProtocol());
           } else {
-            if (!isHttp) {
-              logger.debug("Not visiting: {} - Protocol {} not supported", webURL.getURL(), webURL.getProtocol());
-            } else {
-              logger.debug("Not visiting: {} as per your \"shouldVisit\" policy", webURL.getURL());
-            }
+            logger.debug("Not visiting: {} as per your \"shouldVisit\" policy", webURL.getURL());
+          }
+          
+          if (!followed) {
             // Do not mark the page as redirect as the redirect is not followed due to the policy.
             // rel=canonical is not binding and some sites have misconfigured it.
             page.setRedirect(false);
