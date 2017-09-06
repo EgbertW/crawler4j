@@ -526,6 +526,7 @@ public class WebCrawler implements Runnable {
             if (robotstxtServer.allows(webURL)) {
               frontier.schedule(webURL);
               followed = true;
+              logger.info("Following in-HTML redirect to " .concat(webURL.getURL()));
             } else {
               logger.debug("Not visiting: {} as per the server's \"robots.txt\" policy", webURL.getURL());
             }
@@ -539,6 +540,7 @@ public class WebCrawler implements Runnable {
             // Do not mark the page as redirect as the redirect is not followed due to the policy.
             // rel=canonical is not binding and some sites have misconfigured it.
             page.setRedirect(false);
+            logger.info("Redirect using link=rel is not followed, setting redirect to false");
           }
         }
 
